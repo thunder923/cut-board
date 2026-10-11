@@ -1,1 +1,70 @@
-# cut-board
+# CUT BOARD — 絵コンテアプリ（GitHub Pages対応）
+
+# CUT BOARD — 絵コンテアプリ（GitHub Pages対応）
+
+カメラワーク標準24種類を維持しつつ、カスタム演出を **アプリ内** と **コード** の両方から管理できる静的Webアプリです。
+
+## ファイル
+- `index.html` — アプリ本体
+- `custom-cameras.js` — GitHubで共有する共通カスタム演出一覧
+- `manifest.webmanifest` — PWA用の基本情報
+- `.nojekyll` — GitHub Pagesで静的ファイルを公開するための設定
+- `README.md` — この説明
+
+## カスタム演出を追加する方法
+
+### A. アプリ内で追加（コード不要）
+1. アプリ左側の「カスタム演出を追加」へ。
+2. 名前、英語名、説明を入力して登録。
+3. カットを選んで、カメラワーク欄から登録した演出を選ぶ。
+
+この方法で追加した演出は「自分の演出リスト」に保存され、新しいプロジェクトでも再利用できます。リストは同じブラウザ内の `localStorage` に保存されます。プロジェクトを新規作成しても演出リストは残ります。JSONバックアップには個人用演出リストも含まれるため、別端末に移す場合は書き出したJSONを読み込んでください。
+
+### B. GitHubのコードで追加（全利用者共通）
+`custom-cameras.js` を編集し、配列に次のような項目を追加してコミットします。
+
+```js
+window.CUTBOARD_CUSTOM_CAMERAS = [
+  {
+    id: "G01",
+    name: "スライダー移動",
+    english: "Slider move",
+    description: "スライダーで水平に移動する"
+  }
+];
+```
+
+- `id` は `G01`、`G02` のように重複しないIDにしてください。
+- `name` は必須です。`english` と `description` は任意です。
+- GitHub上でファイルを編集してコミットすると、公開サイトにも反映されます。
+- コードで追加した演出はサイト利用者全員に表示されます。個人のプロジェクトだけに保存したい場合はアプリ内追加を使ってください。
+
+## GitHub Pagesで公開する
+
+1. GitHubで新しいリポジトリを作成（例：`cut-board`）。
+2. このフォルダの中身をリポジトリのルートへアップロードします（ZIPファイルそのものではなく、展開した中身）。
+3. リポジトリの **Settings → Pages** を開きます。
+4. **Build and deployment → Source** で **Deploy from a branch** を選択。
+5. Branch を `main`、フォルダを `/(root)` にして **Save**。
+6. Pages画面に表示されるURLを開きます。公開反映まで少し時間がかかることがあります。
+
+GitHub公式ガイド: https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site
+
+## 保存・同期について（重要）
+現時点では、プロジェクトと個人用カメラワークリストはブラウザの `localStorage` に保存されます。GitHub Pagesは静的ホスティングなので、置くだけではアカウント認証やスマホ・PC間の自動同期はできません。同期にはFirebase Authentication / Cloud Firestore / Cloud Storage等のバックエンドを別途実装する必要があります。画像を含むプロジェクトはJSONに画像データも入るため、大きなデータではファイルサイズに注意してください。
+
+## 現在の主な機能
+- 標準24種類のカメラワーク
+- アプリ内カスタム演出の追加
+- `custom-cameras.js` によるコード管理の共通演出
+- カット追加、複製、削除、上下移動
+- 秒数、場面、演出メモ
+- 指/マウス描画、参考画像の添付
+- JSON書き出し/読み込み
+- 印刷・PDF保存
+
+## 今後の開発候補
+- Firebaseログインとクラウド同期
+- 競合編集の処理とプロジェクト一覧
+- PWAオフライン対応のService Worker
+- カットのドラッグ＆ドロップ

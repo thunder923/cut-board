@@ -1,0 +1,9 @@
+{
+  "name": "CUT BOARD — 絵コンテ",
+  "short_name": "CUT BOARD",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f7",
+  "theme_color": "#111827",
+  "description": "カメラワーク24種類とカスタム演出で作る絵コンテアプリ"
+}
