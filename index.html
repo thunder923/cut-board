@@ -24,6 +24,7 @@ h1,h2,h3,p{margin-top:0}h1{font-size:23px;margin-bottom:5px}h2{font-size:16px;ma
 dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));box-shadow:0 20px 80px #0004}dialog::backdrop{background:#11182799}.modalhead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.modalbody{padding:18px}.modalfoot{padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
 #drawCanvas{width:100%;aspect-ratio:16/9;border:1px solid var(--line);border-radius:10px;touch-action:none;background:white}
 .emptyboard{text-align:center;padding:40px 12px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+.cg-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,1fr);gap:14px}.cg-stage{background:#e8edf3;border-radius:12px;overflow:hidden;border:1px solid var(--line)}#cgCanvas{display:block;width:100%;height:auto;aspect-ratio:16/9;touch-action:pan-y}.cg-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cg-control{background:#f7f9fc;border:1px solid var(--line);padding:8px;border-radius:9px}.cg-control label{font-size:12px;font-weight:700;display:flex;justify-content:space-between;gap:6px}.cg-control input{width:100%;accent-color:var(--blue)}.pose-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px}.pose-grid button{padding:8px 4px;font-size:12px}.cg-hint{font-size:12px;color:var(--muted);line-height:1.5}@media(max-width:650px){.cg-layout{grid-template-columns:1fr}.cg-controls{grid-template-columns:1fr 1fr}}
 @media(max-width:850px){.wrap{grid-template-columns:1fr;padding:12px}.side{position:static;order:2}.mainpanel{padding:12px}.top{padding:12px}.top-actions .desktop{display:none}.cuts{grid-template-columns:1fr}.camera-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:unset}.camera-option{grid-template-columns:28px 1fr}.stats{margin:12px 0}.top .btn{padding:8px 9px}}
 @media(min-width:851px){.mobile-add{display:none}}
 @media print{.top,.side,.toolbar,.cutactions,.btn{display:none!important}.wrap{display:block;padding:0}.mainpanel{border:0;padding:0}.cuts{grid-template-columns:repeat(2,1fr)}.cut{break-inside:avoid}.cut .field input,.cut .field textarea,.cut .field select{border:0;padding:2px}.cuthead{background:#eee!important}}
@@ -43,7 +44,8 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
   <aside class="side">
     <div class="section">
       <h2>プロジェクト</h2>
-      <div class="field"><label for="projectName">タイトル</label><input id="projectName" value="新しい絵コンテ" maxlength="100"></div>
+      <div class="field"><label for="projectName">作品・プロジェクト名</label><input id="projectName" value="新しい絵コンテ" maxlength="100"></div>
+      <div class="field"><label for="projectDate">制作日 / 受領日</label><input id="projectDate" type="date"></div>
       <div class="field"><label for="projectMemo">全体メモ</label><textarea id="projectMemo" placeholder="曲名、撮影場所、演出方針など"></textarea></div>
       <div class="stats">
         <div class="stat"><strong id="cutCount">0</strong><span>カット数</span></div>
@@ -69,12 +71,15 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
       <div class="sync"><b>この試作品の保存：</b><br>この端末のブラウザに自動保存します。スマホとPCのクラウド同期は、Firebase等のクラウド設定後に有効になります。</div>
       <p class="muted" id="saveStatus" style="margin:9px 0 0">この端末に保存されています</p>
       <div class="toolbar"><button class="btn" id="exportBtn2">JSONバックアップ</button><button class="btn" id="importBtn2">JSONから復元</button></div>
+      <div class="field"><label>受け取った絵コンテを取り込む（画像 / PDF）</label><button class="btn" id="referenceImportBtn" type="button">画像・PDFを選択</button><input id="referenceInput" type="file" accept="image/*,.pdf,application/pdf" multiple hidden><p class="muted">画像は1枚ずつカット化。PDFはページごとに画像化して追加し、シーン名をあとから編集できます。</p></div>
       <div class="note">端末間で移す場合は、いったんJSONを書き出し、もう一方の端末で読み込んでください。これは暫定手段で、自動同期ではありません。</div>
     </div>
     <div class="section">
       <h2>絵コンテ出力</h2>
       <p class="muted">印刷ダイアログからPDF保存できます。</p>
       <button class="btn primary" id="printBtn" style="width:100%">印刷 / PDF保存</button>
+      <button class="btn" id="exportImagesBtn" style="width:100%;margin-top:8px">画像で共有（PNG）</button>
+      <p class="muted">PDFは印刷画面から「PDFとして保存」。PNGはカットごとに保存します。</p>
     </div>
   </aside>
   <main class="mainpanel">
@@ -99,6 +104,35 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
   </div>
   <div class="modalfoot"><button class="btn" id="cancelDraw">キャンセル</button><button class="btn primary" id="saveDraw">この絵を保存</button></div>
 </dialog>
+<dialog id="cgDialog">
+  <div class="modalhead"><div><b>CG人物スタジオ</b><div class="muted">ポーズを選び、関節を調整してカットに保存</div></div><button class="btn small" id="closeCg">閉じる</button></div>
+  <div class="modalbody">
+    <div class="cg-layout">
+      <div>
+        <div class="cg-stage"><canvas id="cgCanvas" width="960" height="540" aria-label="CG人物プレビュー"></canvas></div>
+        <p class="cg-hint" style="margin:8px 0 0">※ ブラウザ内で描画する3D風のCGプレビューです。実写級の3Dモデルではありません。保存すると現在のポーズがカット画像になります。</p>
+      </div>
+      <div>
+        <h3>動きプリセット</h3>
+        <div class="pose-grid">
+          <button class="btn" data-pose="stand">立つ</button><button class="btn" data-pose="walk">歩く</button><button class="btn" data-pose="run">走る</button>
+          <button class="btn" data-pose="sit">座る</button><button class="btn" data-pose="fall">倒れる</button><button class="btn" data-pose="armsup">両手を上げる</button>
+        </div>
+        <h3>関節を調整</h3>
+        <div class="cg-controls">
+          <div class="cg-control"><label for="cgLeftArm">左腕 <output id="cgLeftArmVal">-20°</output></label><input id="cgLeftArm" type="range" min="-150" max="150" value="-20"></div>
+          <div class="cg-control"><label for="cgRightArm">右腕 <output id="cgRightArmVal">20°</output></label><input id="cgRightArm" type="range" min="-150" max="150" value="20"></div>
+          <div class="cg-control"><label for="cgLeftLeg">左脚 <output id="cgLeftLegVal">-5°</output></label><input id="cgLeftLeg" type="range" min="-100" max="100" value="-5"></div>
+          <div class="cg-control"><label for="cgRightLeg">右脚 <output id="cgRightLegVal">5°</output></label><input id="cgRightLeg" type="range" min="-100" max="100" value="5"></div>
+          <div class="cg-control"><label for="cgBody">胴体の傾き <output id="cgBodyVal">0°</output></label><input id="cgBody" type="range" min="-60" max="60" value="0"></div>
+          <div class="cg-control"><label for="cgHead">頭の向き <output id="cgHeadVal">0°</output></label><input id="cgHead" type="range" min="-70" max="70" value="0"></div>
+        </div>
+        <div class="toolbar"><button class="btn" id="cgReset">初期姿勢</button><button class="btn" id="cgFlip">左右反転</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="modalfoot"><button class="btn" id="cancelCg">キャンセル</button><button class="btn primary" id="saveCg">このCGをカットに保存</button></div>
+</dialog>
 <input id="jsonInput" type="file" accept="application/json,.json" hidden>
 <input id="imageInput" type="file" accept="image/*" hidden>
 <script>
@@ -115,7 +149,7 @@ const codeCameras=(Array.isArray(window.CUTBOARD_CUSTOM_CAMERAS)?window.CUTBOARD
   description:String(p.description||""),
   source:"code"
 }));
-let project={name:"新しい絵コンテ",memo:"",cuts:[],customCameras:[]};
+let project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};
 function allPresets(){
  const builtins=presets.map(p=>({id:p[0],name:p[1],english:p[2],description:p[3],source:"builtin"}));
  const saved=(project.customCameras||[]).map(p=>({id:p.id,name:p.name,english:p.english||"",description:p.description||"",source:"project"}));
@@ -134,7 +168,7 @@ function total(){return project.cuts.reduce((a,c)=>a+(Number(c.duration)||0),0)}
 function cameraName(id){let p=allPresets().find(x=>x.id===id);return p?p.name:"未設定"}
 function renderCameraList(){let chosen=project.cuts.find(c=>c.id===selectedId);$("cameraList").innerHTML=allPresets().map(p=>`<button class="camera-option ${chosen&&chosen.camera===p.id?"active":""}" data-camera="${esc(p.id)}"><span class="num">${esc(p.id)}</span><span><b>${esc(p.name)}</b><small>${esc(p.description||p.english||"カスタム演出")}</small></span></button>`).join("");}
 function render(){
- $("projectName").value=project.name;$("projectMemo").value=project.memo;$("heading").textContent=project.name||"無題の絵コンテ";
+ $("projectName").value=project.name;$("projectDate").value=project.date||"";$("projectMemo").value=project.memo;$("heading").textContent=project.name||"無題の絵コンテ";
  $("cutCount").textContent=project.cuts.length;$("totalTime").textContent=total()+"秒";
  $("empty").hidden=project.cuts.length>0;
  $("cuts").innerHTML=project.cuts.map((c,i)=>{let cam=allPresets().find(p=>p.id===c.camera);let preview=c.drawing||c.image;
@@ -142,11 +176,11 @@ function render(){
  <div class="cuthead"><span class="cutnum">CUT ${String(i+1).padStart(2,"0")}</span><span class="muted">${Number(c.duration)||0}秒</span></div>
  <div class="cutbody">
  <div class="sketch" data-preview="${c.id}">${preview?`<img src="${preview}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
- <div class="cutactions"><button class="btn small" data-action="draw" data-id="${c.id}">✎ 描く</button><button class="btn small" data-action="image" data-id="${c.id}">▧ 画像</button><button class="btn small" data-action="up" data-id="${c.id}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${c.id}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${c.id}">複製</button><button class="btn small" data-action="delete" data-id="${c.id}">削除</button></div>
+ <div class="cutactions"><button class="btn small" data-action="draw" data-id="${c.id}">✎ 描く</button><button class="btn small" data-action="cg" data-id="${c.id}">♟ 3D人物</button><button class="btn small" data-action="image" data-id="${c.id}">▧ 画像</button><button class="btn small" data-action="up" data-id="${c.id}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${c.id}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${c.id}">複製</button><button class="btn small" data-action="delete" data-id="${c.id}">削除</button></div>
  <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${c.id}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
  ${cam?`<p class="muted" style="margin:-3px 0 8px">${esc(cam.description||cam.english||"")}</p>`:""}
  <div class="field"><label>秒数</label><input type="number" min="0.1" max="999" step="0.5" data-field="duration" data-id="${c.id}" value="${esc(c.duration)}"></div>
- <div class="field"><label>場面・被写体</label><input data-field="scene" data-id="${c.id}" value="${esc(c.scene)}" placeholder="例：サビでメンバー全員"></div>
+ <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${c.id}" value="${esc(c.scene)}" placeholder="例：シーン1・駅前"></div>
  <div class="field"><label>演出・カメラ指示</label><textarea data-field="description" data-id="${c.id}" placeholder="例：歌い出しに合わせてゆっくり寄る">${esc(c.description)}</textarea></div>
  </div></article>`}).join("");
  renderCameraList();
@@ -155,24 +189,74 @@ function addCut(){let c=freshCut();project.cuts.push(c);selectedId=c.id;render()
 function getCut(id){return project.cuts.find(c=>c.id===id)}
 function move(id,delta){let i=project.cuts.findIndex(c=>c.id===id),j=i+delta;if(j<0||j>=project.cuts.length)return;[project.cuts[i],project.cuts[j]]=[project.cuts[j],project.cuts[i]];render();persist()}
 function exportProject(){const blob=new Blob([JSON.stringify(project,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(project.name||"cutboard").replace(/[\\/:*?"<>|]/g,"_")+".json";a.click();URL.revokeObjectURL(a.href)}
-function importProject(file){if(!file)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.cuts))throw Error();project=normalizeProject({name:d.name||"読み込んだ絵コンテ",memo:d.memo||"",cuts:d.cuts,customCameras:d.customCameras||[]});selectedId=project.cuts[0]?.id||null;render();persist();alert("読み込みました")}catch(e){alert("このJSONファイルは読み込めませんでした")}};r.readAsText(file)}
+function importProject(file){if(!file)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.cuts))throw Error();project=normalizeProject({name:d.name||"読み込んだ絵コンテ",date:d.date||new Date().toISOString().slice(0,10),memo:d.memo||"",cuts:d.cuts,customCameras:d.customCameras||[]});selectedId=project.cuts[0]?.id||null;render();persist();alert("読み込みました")}catch(e){alert("このJSONファイルは読み込めませんでした")}};r.readAsText(file)}
 function openDraw(id){drawTarget=id;const c=getCut(id),canvas=$("drawCanvas"),ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);let src=c?.drawing||c?.image;if(src){let img=new Image();img.onload=()=>ctx.drawImage(img,0,0,canvas.width,canvas.height);img.src=src}$("drawDialog").showModal()}
 function point(e){let r=$("drawCanvas").getBoundingClientRect();return {x:(e.clientX-r.left)*$("drawCanvas").width/r.width,y:(e.clientY-r.top)*$("drawCanvas").height/r.height}}
 const dc=$("drawCanvas");dc.addEventListener("pointerdown",e=>{drawing=true;lastPoint=point(e);dc.setPointerCapture(e.pointerId)});dc.addEventListener("pointermove",e=>{if(!drawing)return;let p=point(e),ctx=dc.getContext("2d");ctx.strokeStyle="#111827";ctx.lineWidth=5;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(lastPoint.x,lastPoint.y);ctx.lineTo(p.x,p.y);ctx.stroke();lastPoint=p});["pointerup","pointercancel","pointerleave"].forEach(ev=>dc.addEventListener(ev,()=>{drawing=false;lastPoint=null}));
 function imageToCut(file,id,asDrawing=false){if(!file)return;let r=new FileReader();r.onload=()=>{let c=getCut(id);if(c){if(asDrawing)c.drawing=r.result;else c.image=r.result;render();persist()}};r.readAsDataURL(file)}
 $("cuts").addEventListener("input",e=>{let el=e.target,id=el.dataset.id,field=el.dataset.field;if(!field)return;let c=getCut(id);if(!c)return;c[field]=field==="duration"?Math.max(0,Number(el.value)||0):el.value;if(field==="camera"){selectedId=id;renderCameraList()}if(field==="duration"){let head=el.closest(".cut").querySelector(".cuthead .muted");if(head)head.textContent=c.duration+"秒";$("totalTime").textContent=total()+"秒"}if(field==="scene"||field==="description"||field==="duration")persist()});
 $("cuts").addEventListener("change",e=>{let el=e.target;if(el.dataset.field){let c=getCut(el.dataset.id);if(c){c[el.dataset.field]=el.dataset.field==="duration"?Math.max(0,Number(el.value)||0):el.value;render();persist()}}});
-$("cuts").addEventListener("click",e=>{let b=e.target.closest("button[data-action]");if(!b)return;let {action,id}=b.dataset;selectedId=id;if(action==="draw")openDraw(id);if(action==="image"){$("imageInput").dataset.id=id;$("imageInput").click()}if(action==="up")move(id,-1);if(action==="down")move(id,1);if(action==="duplicate"){let c=getCut(id);let n={...c,id:uid()};let i=project.cuts.findIndex(x=>x.id===id);project.cuts.splice(i+1,0,n);selectedId=n.id;render();persist()}if(action==="delete"){if(confirm("このカットを削除しますか？")){project.cuts=project.cuts.filter(c=>c.id!==id);selectedId=project.cuts[0]?.id||null;render();persist()}}});
+// CG character studio: a shaded, poseable mannequin preview rendered locally on canvas.
+let cgTarget=null, cgFlip=false;
+const cgDefaults={cgLeftArm:-20,cgRightArm:20,cgLeftLeg:-5,cgRightLeg:5,cgBody:0,cgHead:0};
+const cgPresets={
+ stand:{...cgDefaults},walk:{...cgDefaults,cgLeftArm:35,cgRightArm:-35,cgLeftLeg:-28,cgRightLeg:28},run:{...cgDefaults,cgLeftArm:70,cgRightArm:-65,cgLeftLeg:-55,cgRightLeg:45,cgBody:18},sit:{...cgDefaults,cgLeftArm:-10,cgRightArm:10,cgLeftLeg:75,cgRightLeg:70,cgBody:-12},fall:{...cgDefaults,cgLeftArm:-100,cgRightArm:75,cgLeftLeg:55,cgRightLeg:-45,cgBody:55,cgHead:-15},armsup:{...cgDefaults,cgLeftArm:-135,cgRightArm:135,cgLeftLeg:-4,cgRightLeg:4}
+};
+function cgValues(){let v={};Object.keys(cgDefaults).forEach(id=>v[id]=Number($(id).value));return v}
+function setCgValues(v){Object.keys(cgDefaults).forEach(id=>{$(id).value=v[id]??cgDefaults[id];$(id+'Val').textContent=$(id).value+'°'});drawCg()}
+function drawCg(){
+ const canvas=$('cgCanvas'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,v=cgValues();ctx.clearRect(0,0,w,h);
+ let bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#eaf0f6');bg.addColorStop(1,'#cbd5e1');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+ // subtle studio wall and floor
+ ctx.fillStyle='#dce4ed';ctx.fillRect(0,365,w,175);ctx.strokeStyle='#c2ccd8';ctx.lineWidth=2;for(let x=-200;x<w+200;x+=100){ctx.beginPath();ctx.moveTo(w/2+(x-w/2)*.2,365);ctx.lineTo(x,540);ctx.stroke()}ctx.beginPath();ctx.moveTo(0,365);ctx.lineTo(w,365);ctx.stroke();
+ ctx.save();ctx.translate(w/2,0);ctx.scale(cgFlip?-1:1,1);ctx.translate(0,20);ctx.rotate(v.cgBody*Math.PI/180*.45);
+ // soft cast shadow
+ ctx.save();ctx.translate(0,438);ctx.scale(1,.24);let sh=ctx.createRadialGradient(0,0,10,0,0,125);sh.addColorStop(0,'#52617466');sh.addColorStop(1,'#52617400');ctx.fillStyle=sh;ctx.beginPath();ctx.arc(0,0,125,0,Math.PI*2);ctx.fill();ctx.restore();
+ const skin=ctx.createLinearGradient(-55,0,55,0);skin.addColorStop(0,'#6f7b8a');skin.addColorStop(.28,'#c4ccd5');skin.addColorStop(.56,'#eef1f4');skin.addColorStop(.82,'#a4afbb');skin.addColorStop(1,'#667383');
+ const shirt=ctx.createLinearGradient(-60,0,60,0);shirt.addColorStop(0,'#263447');shirt.addColorStop(.35,'#586779');shirt.addColorStop(.58,'#8491a0');shirt.addColorStop(1,'#27364a');
+ const pants=ctx.createLinearGradient(-50,0,50,0);pants.addColorStop(0,'#222d3b');pants.addColorStop(.4,'#4c5969');pants.addColorStop(.7,'#647182');pants.addColorStop(1,'#1f2937');
+ function capsule(x1,y1,x2,y2,r1,r2,fill){ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=fill;ctx.lineWidth=(r1+r2);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.fillStyle=fill;ctx.beginPath();ctx.arc(x1,y1,r1,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x2,y2,r2,0,Math.PI*2);ctx.fill();ctx.restore()}
+ function limb(x,y,len,angle,r1,r2,fill){let a=(angle-90)*Math.PI/180,ex=x+Math.cos(a)*len,ey=y+Math.sin(a)*len;capsule(x,y,ex,ey,r1,r2,fill);return {x:ex,y:ey}}
+ // legs: hip, knee and ankle. joint angles are adjustable.
+ const hipY=320,hipX=0;
+ let lK=limb(hipX-22,hipY,76,v.cgLeftLeg,pants,0,pants); // replaced below by clean segmented drawing
+ // redraw legs with defined segment sizes, overlaying the simple base
+ ctx.fillStyle=pants;ctx.beginPath();ctx.ellipse(-22,320,23,42,-.05,0,Math.PI*2);ctx.ellipse(22,320,23,42,.05,0,Math.PI*2);ctx.fill();
+ function leg(side,ang){let hx=side*21,hy=310;let knee=limb(hx,hy,75,ang,18,14,pants);let ankle=limb(knee.x,knee.y,73,ang*.35+side*5,13,10,pants);capsule(ankle.x,ankle.y,ankle.x+side*19,ankle.y+4,9,7,skin)}
+ leg(-1,v.cgLeftLeg);leg(1,v.cgRightLeg);
+ // torso, neck and head
+ ctx.fillStyle=shirt;ctx.beginPath();ctx.moveTo(-37,165);ctx.quadraticCurveTo(-58,205,-42,288);ctx.quadraticCurveTo(0,308,42,288);ctx.quadraticCurveTo(58,205,37,165);ctx.quadraticCurveTo(0,145,-37,165);ctx.fill();
+ ctx.strokeStyle='#1b2939';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,170);ctx.lineTo(0,283);ctx.stroke();
+ ctx.fillStyle=skin;ctx.fillRect(-10,135,20,35);
+ ctx.save();ctx.translate(0,115);ctx.rotate(v.cgHead*Math.PI/180*.7);ctx.fillStyle=skin;ctx.beginPath();ctx.ellipse(0,0,27,36,0,0,Math.PI*2);ctx.fill();
+ // ears and facial planes, deliberately neutral/non-identifying
+ ctx.fillStyle='#8d99a7';ctx.beginPath();ctx.ellipse(-27,2,5,9,0,0,Math.PI*2);ctx.ellipse(27,2,5,9,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#657282';ctx.beginPath();ctx.ellipse(0,17,13,8,0,0,Math.PI);ctx.fill();ctx.fillStyle='#f1f4f7';ctx.beginPath();ctx.ellipse(-9,-4,4,2,0,0,Math.PI*2);ctx.ellipse(9,-4,4,2,0,0,Math.PI*2);ctx.fill();ctx.restore();
+ // arms pivot at shoulders; two articulated segments
+ function arm(side,ang){let sx=side*39,sy=183;let elbow=limb(sx,sy,55,side*35+ang*.55,14,11,shirt);let hand=limb(elbow.x,elbow.y,49,side*20+ang*.9,10,7,skin);ctx.fillStyle=skin;ctx.beginPath();ctx.ellipse(hand.x+side*2,hand.y+7,8,12,side*.25,0,Math.PI*2);ctx.fill()}
+ arm(-1,v.cgLeftArm);arm(1,v.cgRightArm);
+ // small highlights add a rendered, dimensional feel
+ ctx.globalAlpha=.24;ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-23,184);ctx.quadraticCurveTo(-33,222,-24,270);ctx.moveTo(12,177);ctx.quadraticCurveTo(24,215,17,270);ctx.stroke();ctx.globalAlpha=1;
+ ctx.restore();
+ ctx.fillStyle='#334155';ctx.font='bold 18px system-ui';ctx.fillText('CG HUMAN · POSE PREVIEW',24,34);ctx.font='14px system-ui';ctx.fillStyle='#526174';ctx.fillText('Preset + joint controls',24,57);
+}
+function openCg(id){cgTarget=id;cgFlip=false;setCgValues(cgDefaults);$('cgDialog').showModal()}
+Object.keys(cgDefaults).forEach(id=>$(id).addEventListener('input',()=>{$(id+'Val').textContent=$(id).value+'°';drawCg()}));
+document.querySelectorAll('[data-pose]').forEach(b=>b.addEventListener('click',()=>setCgValues(cgPresets[b.dataset.pose]||cgDefaults)));
+$('cgReset').addEventListener('click',()=>{cgFlip=false;setCgValues(cgDefaults)});$('cgFlip').addEventListener('click',()=>{cgFlip=!cgFlip;drawCg()});
+$('closeCg').addEventListener('click',()=>$('cgDialog').close());$('cancelCg').addEventListener('click',()=>$('cgDialog').close());
+$('saveCg').addEventListener('click',()=>{let c=getCut(cgTarget);if(!c)return;c.drawing=$('cgCanvas').toDataURL('image/png');c.image='';if(!c.scene)c.scene='CG人物シーン';if(!c.description)c.description='CG人物のポーズを作成';render();persist();$('cgDialog').close()});
+$("cuts").addEventListener("click",e=>{let b=e.target.closest("button[data-action]");if(!b)return;let {action,id}=b.dataset;selectedId=id;if(action==="draw")openDraw(id);if(action==="cg")openCg(id);if(action==="image"){$("imageInput").dataset.id=id;$("imageInput").click()}if(action==="up")move(id,-1);if(action==="down")move(id,1);if(action==="duplicate"){let c=getCut(id);let n={...c,id:uid()};let i=project.cuts.findIndex(x=>x.id===id);project.cuts.splice(i+1,0,n);selectedId=n.id;render();persist()}if(action==="delete"){if(confirm("このカットを削除しますか？")){project.cuts=project.cuts.filter(c=>c.id!==id);selectedId=project.cuts[0]?.id||null;render();persist()}}});
 $("cameraList").addEventListener("click",e=>{let b=e.target.closest("[data-camera]");if(!b)return;if(!selectedId){addCut()}let c=getCut(selectedId);if(c)c.camera=b.dataset.camera;render();persist()});
 $("projectName").addEventListener("input",e=>{project.name=e.target.value;$("heading").textContent=project.name||"無題の絵コンテ";persist()});
 $("projectMemo").addEventListener("input",e=>{project.memo=e.target.value;persist()});
+$("projectDate").addEventListener("change",e=>{project.date=e.target.value;persist()});
 ["addTop","addMobile","emptyAdd"].forEach(id=>$(id).addEventListener("click",addCut));
 $("sortBtn").addEventListener("click",()=>{render();window.scrollTo({top:0,behavior:"smooth"})});
 ["exportBtn","exportBtn2"].forEach(id=>$(id).addEventListener("click",exportProject));
 ["importBtn","importBtn2"].forEach(id=>$(id).addEventListener("click",()=>$("jsonInput").click()));
 $("jsonInput").addEventListener("change",e=>{importProject(e.target.files[0]);e.target.value=""});
 $("imageInput").addEventListener("change",e=>{imageToCut(e.target.files[0],e.target.dataset.id);e.target.value=""});
-$("newProject").addEventListener("click",()=>{if(confirm("現在のプロジェクトを新規作成しますか？ 先にJSONを書き出すことをおすすめします。")){project={name:"新しい絵コンテ",memo:"",cuts:[],customCameras:[]};selectedId=null;render();persist()}});
+$("newProject").addEventListener("click",()=>{if(confirm("現在のプロジェクトを新規作成しますか？ 先にJSONを書き出すことをおすすめします。")){project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};selectedId=null;render();persist()}});
 $("printBtn").addEventListener("click",()=>window.print());
 $("closeDraw").addEventListener("click",()=>$("drawDialog").close());$("cancelDraw").addEventListener("click",()=>$("drawDialog").close());
 $("clearDraw").addEventListener("click",()=>{let ctx=dc.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,dc.width,dc.height)});
@@ -189,6 +273,59 @@ $("addCustomCamera").addEventListener("click",()=>{
  $("customName").value="";$("customEnglish").value="";$("customDescription").value="";
  renderCameraList();persist();alert("カスタム演出を登録しました。カットを選択して演出を設定できます。");
 });
+
+// Import reference storyboards: images become cuts; PDFs are rendered page-by-page with PDF.js.
+$("referenceImportBtn").addEventListener("click",()=>$("referenceInput").click());
+$("referenceInput").addEventListener("change",async e=>{
+ const files=Array.from(e.target.files||[]); if(!files.length)return;
+ const pdfFiles=files.filter(f=>f.type==="application/pdf"||/\.pdf$/i.test(f.name));
+ const imageFiles=files.filter(f=>f.type.startsWith("image/"));
+ for(const f of imageFiles){
+   const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)});
+   const cut=freshCut();cut.image=data;cut.scene=f.name.replace(/\.[^.]+$/,"");cut.description="受領した絵コンテ画像";project.cuts.push(cut);
+ }
+ for(const f of pdfFiles){
+   try{
+     if(!window.pdfjsLib) await loadPdfJs();
+     const buf=await f.arrayBuffer(),pdf=await pdfjsLib.getDocument({data:buf}).promise;
+     for(let n=1;n<=pdf.numPages;n++){
+       const page=await pdf.getPage(n),vp=page.getViewport({scale:1.35}),canvas=document.createElement("canvas");
+       canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);
+       await page.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+       const cut=freshCut();cut.image=canvas.toDataURL("image/jpeg",0.88);cut.scene=f.name.replace(/\.pdf$/i,"")+" / "+n+"ページ";cut.description="PDFから取り込んだ絵コンテ（ページ "+n+"）";project.cuts.push(cut);
+     }
+   }catch(err){alert("PDF「"+f.name+"」を読み込めませんでした。通信環境を確認するか、PDFをページ画像にして取り込んでください。")}
+ }
+ selectedId=project.cuts.at(-1)?.id||selectedId;render();persist();e.target.value="";
+ alert("取り込みました。シーン名を編集して作品・日付ごとに整理できます。");
+});
+function loadPdfJs(){return new Promise((resolve,reject)=>{
+ const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+ sc.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve()};
+ sc.onerror=reject;document.head.appendChild(sc);
+})}
+function safeFileName(s){return String(s||"cutboard").replace(/[\\/:*?"<>|]/g,"_").slice(0,80)}
+function downloadDataUrl(data,name){const a=document.createElement("a");a.href=data;a.download=name;document.body.appendChild(a);a.click();a.remove()}
+$("exportImagesBtn").addEventListener("click",()=>{
+ if(!project.cuts.length){alert("画像にするカットがありません");return}
+ // Export each storyboard panel as an image, preserving any imported/drawn artwork and cut metadata.
+ project.cuts.forEach((c,i)=>{
+   const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=1200;canvas.height=900;
+   ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.fillStyle="#172033";ctx.font="bold 32px sans-serif";ctx.fillText((project.name||"CUT BOARD")+"  /  "+(project.date||""),48,55);
+   ctx.fillStyle="#1674f8";ctx.font="bold 28px sans-serif";ctx.fillText("CUT "+String(i+1).padStart(2,"0")+"   "+(c.duration||0)+"秒",48,105);
+   const drawText=(txt,x,y,max=1080)=>{ctx.fillStyle="#172033";ctx.font="24px sans-serif";const str=String(txt||"");let line="",yy=y;for(const ch of str){if(ctx.measureText(line+ch).width>max){ctx.fillText(line,x,yy);line=ch;yy+=32}else line+=ch}if(line)ctx.fillText(line,x,yy);return yy+38};
+   let y=drawText("シーン： "+(c.scene||"未設定"),48,150);
+   const imgSrc=c.drawing||c.image;
+   const drawMeta=()=>{
+     y=drawText("カメラ： "+cameraName(c.camera),48,640);
+     y=drawText("演出： "+(c.description||"なし"),48,y);
+     canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=safeFileName(project.name)+"_"+safeFileName(project.date)+"_CUT"+String(i+1).padStart(2,"0")+".png";a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}, "image/png");
+   };
+   if(imgSrc){const img=new Image();img.onload=()=>{const maxW=1104,maxH=450,scale=Math.min(maxW/img.width,maxH/img.height);ctx.drawImage(img,48,190,img.width*scale,img.height*scale);drawMeta()};img.onerror=drawMeta;img.src=imgSrc}else drawMeta();
+ });
+});
+
 loadLocal();selectedId=project.cuts[0]?.id||null;render();
 if(!project.customCameras)project.customCameras=[];
 if(!project.cuts.length){/* Start with one useful sample cut */project.cuts=[Object.assign(freshCut(),{camera:"03",duration:3,scene:"人物の表情",description:"ゆっくり寄って感情を見せる"})];selectedId=project.cuts[0].id;render();persist()}
