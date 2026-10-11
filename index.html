@@ -36,6 +36,7 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
   <div class="top-actions">
     <button class="btn ghost desktop" id="newProject">新規プロジェクト</button>
     <button class="btn ghost desktop" id="importBtn">JSON読込</button>
+    <button class="btn ghost" id="accountBtn" type="button">アカウント設定</button>
     <button class="btn ghost" id="exportBtn">書き出し</button>
     <button class="btn primary" id="addTop">＋ カット追加</button>
   </div>
@@ -73,6 +74,14 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
       <div class="toolbar"><button class="btn" id="exportBtn2">JSONバックアップ</button><button class="btn" id="importBtn2">JSONから復元</button></div>
       <div class="field"><label>受け取った絵コンテを取り込む（画像 / PDF）</label><button class="btn" id="referenceImportBtn" type="button">画像・PDFを選択</button><input id="referenceInput" type="file" accept="image/*,.pdf,application/pdf" multiple hidden><p class="muted">画像は1枚ずつカット化。PDFはページごとに画像化して追加し、シーン名をあとから編集できます。</p></div>
       <div class="note">端末間で移す場合は、いったんJSONを書き出し、もう一方の端末で読み込んでください。これは暫定手段で、自動同期ではありません。</div>
+    </div>
+    <div class="section" id="accountSection">
+      <h2>アカウント設定</h2>
+      <div class="sync"><b id="accountStatus">未接続</b><br>Google／Appleログインとクラウド同期は、Firebaseのプロジェクト設定後に有効になります。今のデータはこの端末に保存されています。</div>
+      <div class="field"><label for="displayName">表示名（この端末の設定）</label><input id="displayName" maxlength="60" placeholder="例：制作担当"></div>
+      <button class="btn" id="saveAccountSettings" type="button" style="width:100%">表示名を保存</button>
+      <p class="muted">ログイン機能はまだ接続されていません。設定が済むまでは、JSONバックアップを定期的に保存してください。</p>
+      <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Consoleを開く</a>
     </div>
     <div class="section">
       <h2>絵コンテ出力</h2>
@@ -157,10 +166,10 @@ function allPresets(){
 }
 function normalizeProject(d){
  d.customCameras=Array.isArray(d.customCameras)?d.customCameras:[];
- d.cuts=(d.cuts||[]).map(c=>({...c,customCameras:undefined}));
+ d.cuts=(d.cuts||[]).map((c,i)=>({...c,cutNumber:c.cutNumber??String(i+1),sceneNumber:c.sceneNumber??"",customCameras:undefined}));
  return d;
 }
-function freshCut(){return {id:uid(),duration:3,camera:"",description:"",scene:"",image:"",drawing:""}}
+function freshCut(){return {id:uid(),cutNumber:String(project.cuts.length+1),sceneNumber:"",duration:3,camera:"",description:"",scene:"",image:"",drawing:""}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function persist(){try{localStorage.setItem("cutboard-project-v1",JSON.stringify(project));$("saveStatus").textContent="保存済み · "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}catch(e){$("saveStatus").textContent="保存容量が不足しています。画像を減らして書き出してください。"}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem("cutboard-project-v1")||"null");if(d&&Array.isArray(d.cuts))project=normalizeProject(d)}catch(e){}}
@@ -173,14 +182,16 @@ function render(){
  $("empty").hidden=project.cuts.length>0;
  $("cuts").innerHTML=project.cuts.map((c,i)=>{let cam=allPresets().find(p=>p.id===c.camera);let preview=c.drawing||c.image;
  return `<article class="cut" data-id="${c.id}">
- <div class="cuthead"><span class="cutnum">CUT ${String(i+1).padStart(2,"0")}</span><span class="muted">${Number(c.duration)||0}秒</span></div>
+ <div class="cuthead"><span class="cutnum">CUT ${esc(c.cutNumber??String(i+1))}</span><span class="muted">${Number(c.duration)||0}秒</span></div>
  <div class="cutbody">
  <div class="sketch" data-preview="${c.id}">${preview?`<img src="${preview}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
  <div class="cutactions"><button class="btn small" data-action="draw" data-id="${c.id}">✎ 描く</button><button class="btn small" data-action="cg" data-id="${c.id}">♟ 3D人物</button><button class="btn small" data-action="image" data-id="${c.id}">▧ 画像</button><button class="btn small" data-action="up" data-id="${c.id}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${c.id}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${c.id}">複製</button><button class="btn small" data-action="delete" data-id="${c.id}">削除</button></div>
  <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${c.id}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
  ${cam?`<p class="muted" style="margin:-3px 0 8px">${esc(cam.description||cam.english||"")}</p>`:""}
+ <div class="field"><label>カット番号（重複可）</label><input data-field="cutNumber" data-id="${c.id}" value="${esc(c.cutNumber??String(i+1))}" placeholder="例：12A、3-2"></div>
+ <div class="field"><label>シーン番号（重複可）</label><input data-field="sceneNumber" data-id="${c.id}" value="${esc(c.sceneNumber??"")}" placeholder="例：SCENE 2"></div>
+ <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${c.id}" value="${esc(c.scene)}" placeholder="例：駅前・人物の表情"></div>
  <div class="field"><label>秒数</label><input type="number" min="0.1" max="999" step="0.5" data-field="duration" data-id="${c.id}" value="${esc(c.duration)}"></div>
- <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${c.id}" value="${esc(c.scene)}" placeholder="例：シーン1・駅前"></div>
  <div class="field"><label>演出・カメラ指示</label><textarea data-field="description" data-id="${c.id}" placeholder="例：歌い出しに合わせてゆっくり寄る">${esc(c.description)}</textarea></div>
  </div></article>`}).join("");
  renderCameraList();
@@ -194,7 +205,7 @@ function openDraw(id){drawTarget=id;const c=getCut(id),canvas=$("drawCanvas"),ct
 function point(e){let r=$("drawCanvas").getBoundingClientRect();return {x:(e.clientX-r.left)*$("drawCanvas").width/r.width,y:(e.clientY-r.top)*$("drawCanvas").height/r.height}}
 const dc=$("drawCanvas");dc.addEventListener("pointerdown",e=>{drawing=true;lastPoint=point(e);dc.setPointerCapture(e.pointerId)});dc.addEventListener("pointermove",e=>{if(!drawing)return;let p=point(e),ctx=dc.getContext("2d");ctx.strokeStyle="#111827";ctx.lineWidth=5;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(lastPoint.x,lastPoint.y);ctx.lineTo(p.x,p.y);ctx.stroke();lastPoint=p});["pointerup","pointercancel","pointerleave"].forEach(ev=>dc.addEventListener(ev,()=>{drawing=false;lastPoint=null}));
 function imageToCut(file,id,asDrawing=false){if(!file)return;let r=new FileReader();r.onload=()=>{let c=getCut(id);if(c){if(asDrawing)c.drawing=r.result;else c.image=r.result;render();persist()}};r.readAsDataURL(file)}
-$("cuts").addEventListener("input",e=>{let el=e.target,id=el.dataset.id,field=el.dataset.field;if(!field)return;let c=getCut(id);if(!c)return;c[field]=field==="duration"?Math.max(0,Number(el.value)||0):el.value;if(field==="camera"){selectedId=id;renderCameraList()}if(field==="duration"){let head=el.closest(".cut").querySelector(".cuthead .muted");if(head)head.textContent=c.duration+"秒";$("totalTime").textContent=total()+"秒"}if(field==="scene"||field==="description"||field==="duration")persist()});
+$("cuts").addEventListener("input",e=>{let el=e.target,id=el.dataset.id,field=el.dataset.field;if(!field)return;let c=getCut(id);if(!c)return;c[field]=field==="duration"?Math.max(0,Number(el.value)||0):el.value;if(field==="camera"){selectedId=id;renderCameraList()}if(field==="duration"){let head=el.closest(".cut").querySelector(".cuthead .muted");if(head)head.textContent=c.duration+"秒";$("totalTime").textContent=total()+"秒"}if(field==="scene"||field==="sceneNumber"||field==="cutNumber"||field==="description"||field==="duration")persist()});
 $("cuts").addEventListener("change",e=>{let el=e.target;if(el.dataset.field){let c=getCut(el.dataset.id);if(c){c[el.dataset.field]=el.dataset.field==="duration"?Math.max(0,Number(el.value)||0):el.value;render();persist()}}});
 // CG character studio: a shaded, poseable mannequin preview rendered locally on canvas.
 let cgTarget=null, cgFlip=false;
@@ -252,6 +263,9 @@ $("projectMemo").addEventListener("input",e=>{project.memo=e.target.value;persis
 $("projectDate").addEventListener("change",e=>{project.date=e.target.value;persist()});
 ["addTop","addMobile","emptyAdd"].forEach(id=>$(id).addEventListener("click",addCut));
 $("sortBtn").addEventListener("click",()=>{render();window.scrollTo({top:0,behavior:"smooth"})});
+$("accountBtn").addEventListener("click",()=>{$("accountSection").scrollIntoView({behavior:"smooth",block:"center"});$("displayName").focus({preventScroll:true})});
+try{$("displayName").value=localStorage.getItem("cutboard-display-name")||""}catch(e){}
+$("saveAccountSettings").addEventListener("click",()=>{try{localStorage.setItem("cutboard-display-name",$("displayName").value.trim());alert("表示名をこの端末に保存しました。ログイン・クラウド同期はFirebase設定後に利用できます。")}catch(e){alert("保存できませんでした")}});
 ["exportBtn","exportBtn2"].forEach(id=>$(id).addEventListener("click",exportProject));
 ["importBtn","importBtn2"].forEach(id=>$(id).addEventListener("click",()=>$("jsonInput").click()));
 $("jsonInput").addEventListener("change",e=>{importProject(e.target.files[0]);e.target.value=""});
