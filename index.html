@@ -24,10 +24,15 @@ h1,h2,h3,p{margin-top:0}h1{font-size:23px;margin-bottom:5px}h2{font-size:16px;ma
 dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));box-shadow:0 20px 80px #0004}dialog::backdrop{background:#11182799}.modalhead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.modalbody{padding:18px}.modalfoot{padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
 #drawCanvas{width:100%;aspect-ratio:16/9;border:1px solid var(--line);border-radius:10px;touch-action:none;background:white}
 .emptyboard{text-align:center;padding:40px 12px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+.cg-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,1fr);gap:14px}.cg-stage{background:#e8edf3;border-radius:12px;overflow:hidden;border:1px solid var(--line)}#cgCanvas{display:block;width:100%;height:auto;aspect-ratio:16/9;touch-action:pan-y}.cg-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cg-control{background:#f7f9fc;border:1px solid var(--line);padding:8px;border-radius:9px}.cg-control label{font-size:12px;font-weight:700;display:flex;justify-content:space-between;gap:6px}.cg-control input{width:100%;accent-color:var(--blue)}.pose-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px}.pose-grid button{padding:8px 4px;font-size:12px}.cg-hint{font-size:12px;color:var(--muted);line-height:1.5}@media(max-width:650px){.cg-layout{grid-template-columns:1fr}.cg-controls{grid-template-columns:1fr 1fr}}
+.cg-viewport{width:100%;height:min(58vh,620px);min-height:330px;touch-action:none}.cg-viewport canvas{display:block;width:100%;height:100%}.cg-tools{display:grid;gap:9px;max-height:58vh;overflow:auto;padding-right:3px}.cg-tools h3{margin:2px 0}.cg-tools .toolbar{margin:0}.cg-tools .btn{padding:7px 8px;font-size:12px}.cg-number-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.cg-number-grid label{font-size:11px;color:var(--muted)}.cg-number-grid input{width:100%;min-width:0;border:1px solid var(--line);border-radius:7px;padding:6px}.cg-tool-section{border-top:1px solid var(--line);padding-top:9px}.cg-object-select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:white}
 @media(max-width:850px){.wrap{grid-template-columns:1fr;padding:12px}.side{position:static;order:2}.mainpanel{padding:12px}.top{padding:12px}.top-actions .desktop{display:none}.cuts{grid-template-columns:1fr}.camera-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:unset}.camera-option{grid-template-columns:28px 1fr}.stats{margin:12px 0}.top .btn{padding:8px 9px}}
 @media(min-width:851px){.mobile-add{display:none}}
 @media print{.top,.side,.toolbar,.cutactions,.btn{display:none!important}.wrap{display:block;padding:0}.mainpanel{border:0;padding:0}.cuts{grid-template-columns:repeat(2,1fr)}.cut{break-inside:avoid}.cut .field input,.cut .field textarea,.cut .field select{border:0;padding:2px}.cuthead{background:#eee!important}}
 </style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}
+</script>
 </head>
 <body>
 <header class="top">
@@ -35,6 +40,7 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
   <div class="top-actions">
     <button class="btn ghost desktop" id="newProject">新規プロジェクト</button>
     <button class="btn ghost desktop" id="importBtn">JSON読込</button>
+    <button class="btn ghost" id="accountBtn" type="button">アカウント設定</button>
     <button class="btn ghost" id="exportBtn">書き出し</button>
     <button class="btn primary" id="addTop">＋ カット追加</button>
   </div>
@@ -43,7 +49,8 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
   <aside class="side">
     <div class="section">
       <h2>プロジェクト</h2>
-      <div class="field"><label for="projectName">タイトル</label><input id="projectName" value="新しい絵コンテ" maxlength="100"></div>
+      <div class="field"><label for="projectName">作品・プロジェクト名</label><input id="projectName" value="新しい絵コンテ" maxlength="100"></div>
+      <div class="field"><label for="projectDate">制作日 / 受領日</label><input id="projectDate" type="date"></div>
       <div class="field"><label for="projectMemo">全体メモ</label><textarea id="projectMemo" placeholder="曲名、撮影場所、演出方針など"></textarea></div>
       <div class="stats">
         <div class="stat"><strong id="cutCount">0</strong><span>カット数</span></div>
@@ -69,12 +76,35 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
       <div class="sync"><b>この試作品の保存：</b><br>この端末のブラウザに自動保存します。スマホとPCのクラウド同期は、Firebase等のクラウド設定後に有効になります。</div>
       <p class="muted" id="saveStatus" style="margin:9px 0 0">この端末に保存されています</p>
       <div class="toolbar"><button class="btn" id="exportBtn2">JSONバックアップ</button><button class="btn" id="importBtn2">JSONから復元</button></div>
+      <div class="field"><label>受け取った絵コンテを取り込む（画像 / PDF）</label><button class="btn" id="referenceImportBtn" type="button">画像・PDFを選択</button><input id="referenceInput" type="file" accept="image/*,.pdf,application/pdf" multiple hidden><p class="muted">画像は1枚ずつカット化。PDFはページごとに画像化して追加し、シーン名をあとから編集できます。</p></div>
       <div class="note">端末間で移す場合は、いったんJSONを書き出し、もう一方の端末で読み込んでください。これは暫定手段で、自動同期ではありません。</div>
+    </div>
+    <div class="section" id="accountSection">
+      <h2>アカウント設定</h2>
+      <div class="sync"><b id="accountStatus">接続確認中…</b><br><span id="cloudStatus">ローカル保存は引き続き有効です。ログイン後も、クラウドとの読み書きは選択するまで行いません。</span></div>
+      <button class="btn" id="googleLogin" type="button" style="width:100%;margin-top:9px">Googleでログイン</button>
+      <div class="field"><label for="authEmail">メールアドレス</label><input id="authEmail" type="email" autocomplete="email"></div>
+      <div class="field"><label for="authPassword">パスワード</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6"></div>
+      <div class="toolbar"><button class="btn" id="emailLogin" type="button">ログイン</button><button class="btn" id="emailSignup" type="button">新規登録</button><button class="btn" id="resetPasswordBtn" type="button">パスワードを再設定</button><button class="btn" id="logoutBtn" type="button" hidden>ログアウト</button></div>
+      <div id="emailVerificationControls" class="sync" hidden>
+        <p id="emailVerificationText" style="margin:0 0 8px"></p>
+        <div class="toolbar" style="margin:0"><button class="btn" id="resendVerification" type="button">確認メールを再送</button><button class="btn" id="refreshVerification" type="button">確認状態を更新</button></div>
+      </div>
+      <div id="cloudControls" hidden>
+        <div class="field"><label for="cloudProjects">保存済みクラウドプロジェクト</label><select id="cloudProjects"><option value="">一覧を読み込んでください</option></select></div>
+        <div class="toolbar"><button class="btn" id="refreshCloud" type="button">一覧を更新</button><button class="btn" id="loadCloud" type="button">選択したプロジェクトを読み込む</button></div>
+        <button class="btn primary" id="saveCloudAs" type="button" style="width:100%">このローカルプロジェクトをクラウドに新規保存</button>
+        <p class="muted">既存データは自動で移行・上書きしません。読み込みは現在のローカル表示を置き換えるため、事前に確認が表示されます。画像が多いプロジェクトはFirestoreのサイズ上限により保存できない場合があります。</p>
+      </div>
+      <div class="field"><label for="displayName">表示名（この端末の設定）</label><input id="displayName" maxlength="60" placeholder="例：制作担当"></div>
+      <button class="btn" id="saveAccountSettings" type="button" style="width:100%">表示名を保存</button>
     </div>
     <div class="section">
       <h2>絵コンテ出力</h2>
       <p class="muted">印刷ダイアログからPDF保存できます。</p>
       <button class="btn primary" id="printBtn" style="width:100%">印刷 / PDF保存</button>
+      <button class="btn" id="exportImagesBtn" style="width:100%;margin-top:8px">画像で共有（PNG）</button>
+      <p class="muted">PDFは印刷画面から「PDFとして保存」。PNGはカットごとに保存します。</p>
     </div>
   </aside>
   <main class="mainpanel">
@@ -99,8 +129,61 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
   </div>
   <div class="modalfoot"><button class="btn" id="cancelDraw">キャンセル</button><button class="btn primary" id="saveDraw">この絵を保存</button></div>
 </dialog>
+<dialog id="cgDialog">
+  <div class="modalhead"><div><b>3Dシーンスタジオ</b><div class="muted">空間を回して確認し、人物・小道具・撮影カメラを配置</div></div><button class="btn small" id="closeCg">閉じる</button></div>
+  <div class="modalbody">
+    <div class="cg-layout">
+      <div>
+        <div class="cg-stage"><div id="cgViewport" class="cg-viewport" aria-label="3Dシーン"></div></div>
+        <p class="muted" id="sceneLoadStatus" role="status">3Dシーンを準備しています。</p>
+        <div class="toolbar"><button class="btn" id="sceneViewToggle" type="button">撮影カメラの画角で表示</button><span class="muted">ドラッグで視点を回す／ホイールでズーム</span></div>
+        <p class="cg-hint" style="margin:8px 0 0">配置した人物・小道具はドラッグして移動できます。保存すると撮影カメラから見た画をカットに記録します。</p>
+      </div>
+      <div class="cg-tools">
+        <div class="cg-tool-section">
+          <h3>小道具を追加</h3>
+          <div class="toolbar"><button class="btn" id="addChair" type="button">椅子</button><button class="btn" id="addBench" type="button">ベンチ</button><button class="btn" id="addTree" type="button">木</button></div>
+          <label class="muted" for="sceneSelection">選択中のオブジェクト</label><select class="cg-object-select" id="sceneSelection"></select>
+          <div class="toolbar"><button class="btn" id="moveMode" type="button">移動</button><button class="btn" id="rotateMode" type="button">回転</button><button class="btn" id="scaleMode" type="button">拡大縮小</button><button class="btn" id="cameraMoveMode" type="button">カメラを移動</button><button class="btn" id="removeObject" type="button">削除</button></div>
+        </div>
+        <div class="cg-tool-section">
+          <h3>選択物の位置（X / Y / Z）</h3>
+          <div class="cg-number-grid"><label>X<input id="objectX" type="number" step="0.1"></label><label>Y<input id="objectY" type="number" step="0.1"></label><label>Z<input id="objectZ" type="number" step="0.1"></label></div>
+        </div>
+        <div class="cg-tool-section">
+          <h3>撮影カメラ位置（X / Y / Z）</h3>
+          <div class="cg-number-grid"><label>X<input id="cameraX" type="number" step="0.1"></label><label>Y<input id="cameraY" type="number" step="0.1"></label><label>Z<input id="cameraZ" type="number" step="0.1"></label></div>
+          <h3 style="margin-top:8px">注視点（X / Y / Z）</h3>
+          <div class="cg-number-grid"><label>X<input id="targetX" type="number" step="0.1"></label><label>Y<input id="targetY" type="number" step="0.1"></label><label>Z<input id="targetZ" type="number" step="0.1"></label></div>
+          <label class="muted" for="cameraFov">画角（視野角）</label><input id="cameraFov" type="range" min="20" max="80" value="45"><output id="cameraFovValue">45°</output>
+        </div>
+        <div>
+        <h3>動きプリセット</h3>
+        <div class="pose-grid">
+          <button class="btn" data-pose="stand">立つ</button><button class="btn" data-pose="walk">歩く</button><button class="btn" data-pose="run">走る</button>
+          <button class="btn" data-pose="sit">座る</button><button class="btn" data-pose="fall">倒れる</button><button class="btn" data-pose="armsup">両手を上げる</button>
+        </div>
+        <h3>関節を調整</h3>
+        <div class="cg-controls">
+          <div class="cg-control"><label for="cgLeftArm">左腕 <output id="cgLeftArmVal">-20°</output></label><input id="cgLeftArm" type="range" min="-150" max="150" value="-20"></div>
+          <div class="cg-control"><label for="cgRightArm">右腕 <output id="cgRightArmVal">20°</output></label><input id="cgRightArm" type="range" min="-150" max="150" value="20"></div>
+          <div class="cg-control"><label for="cgLeftLeg">左脚 <output id="cgLeftLegVal">-5°</output></label><input id="cgLeftLeg" type="range" min="-100" max="100" value="-5"></div>
+          <div class="cg-control"><label for="cgRightLeg">右脚 <output id="cgRightLegVal">5°</output></label><input id="cgRightLeg" type="range" min="-100" max="100" value="5"></div>
+          <div class="cg-control"><label for="cgBody">胴体の傾き <output id="cgBodyVal">0°</output></label><input id="cgBody" type="range" min="-60" max="60" value="0"></div>
+          <div class="cg-control"><label for="cgHead">頭の向き <output id="cgHeadVal">0°</output></label><input id="cgHead" type="range" min="-70" max="70" value="0"></div>
+        </div>
+        <div class="toolbar"><button class="btn" id="cgReset">初期姿勢</button><button class="btn" id="cgFlip">左右反転</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modalfoot"><button class="btn" id="cancelCg">キャンセル</button><button class="btn primary" id="saveCg">このCGをカットに保存</button></div>
+</dialog>
 <input id="jsonInput" type="file" accept="application/json,.json" hidden>
 <input id="imageInput" type="file" accept="image/*" hidden>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
 <script>
 const presets=[
 ["01","パン","Pan","カメラを横に振る"],["02","ティルト","Tilt","カメラを縦に振る"],["03","ドリーイン","Dolly in","カメラごと被写体に近づく"],["04","ズームイン","Zoom in","レンズで寄る（位置は動かない）"],["05","トラッキング","Tracking shot","被写体と並んで動く"],["06","オービット","Orbit (Arc shot)","被写体の周りを回り込む"],["07","クレーンアップ","Crane up","カメラが上へ昇っていく"],["08","ドリーズーム","Dolly zoom (Vertigo)","人物はそのまま背景だけ伸び縮み"],["09","ラックフォーカス","Rack focus","ピントを手前から奥へ送る"],["10","手持ち風","Handheld","わざと小さく揺らす"],["11","FPV","FPV drone shot","ドローンで突き進む疾走感"],["12","ダッチアングル","Dutch angle","画面を斜めに傾ける"],["13","スローモーション","Slow motion","動きをゆっくり見せる"],["14","スピードランプ","Speed ramp","速い→遅いと速さを変える"],["15","タイムラプス","Time-lapse","長い時間を早送りで見せる"],["16","フリーズフレーム","Freeze frame","動きを一瞬止める"],["17","ジャンプカット","Jump cut","同じ画角のまま時間を飛ばす"],["18","マッチカット","Match cut","形や動きをそろえて場面を変える"],["19","ホイップパン","Whip pan","素早く振ってブレで次へ"],["20","クロスディゾルブ","Cross dissolve","前後の映像を重ねて溶かす"],["21","ワイプ","Wipe","境目が横切って画面が入れ替わる"],["22","スマッシュカット","Smash cut","静かな場面から急に切り替える"],["23","Jカット","J-cut","次の場面の音が先に聞こえる"],["24","Lカット","L-cut","前の場面の音が後まで残る"]
@@ -115,7 +198,10 @@ const codeCameras=(Array.isArray(window.CUTBOARD_CUSTOM_CAMERAS)?window.CUTBOARD
   description:String(p.description||""),
   source:"code"
 }));
-let project={name:"新しい絵コンテ",memo:"",cuts:[],customCameras:[]};
+let project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};
+const firebaseConfig={apiKey:"AIzaSyBzwtyBXsPLHtoKpnShSLN5HTgk4PGPjvA",authDomain:"cut-board-f508a.firebaseapp.com",projectId:"cut-board-f508a",storageBucket:"cut-board-f508a.firebasestorage.app",messagingSenderId:"441717303452",appId:"1:441717303452:web:5b9296560d0ef5f0126559",measurementId:"G-TMK5QWY0QR"};
+let auth=null,db=null,currentUser=null,cloudProjectId=null,cloudBaseVersion=null,cloudConflict=false,cloudSaveTimer=null,lastAuthUid=null;
+try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore()}catch(e){console.error("Firebase initialization failed",e)}
 function allPresets(){
  const builtins=presets.map(p=>({id:p[0],name:p[1],english:p[2],description:p[3],source:"builtin"}));
  const saved=(project.customCameras||[]).map(p=>({id:p.id,name:p.name,english:p.english||"",description:p.description||"",source:"project"}));
@@ -123,31 +209,45 @@ function allPresets(){
 }
 function normalizeProject(d){
  d.customCameras=Array.isArray(d.customCameras)?d.customCameras:[];
- d.cuts=(d.cuts||[]).map(c=>({...c,customCameras:undefined}));
+ d.cuts=(d.cuts||[]).map((c,i)=>({...c,cutNumber:c.cutNumber??String(i+1),sceneNumber:c.sceneNumber??"",customCameras:undefined}));
  return d;
 }
-function freshCut(){return {id:uid(),duration:3,camera:"",description:"",scene:"",image:"",drawing:""}}
+function freshCut(){return {id:uid(),cutNumber:String(project.cuts.length+1),sceneNumber:"",duration:3,camera:"",description:"",scene:"",image:"",drawing:""}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function persist(){try{localStorage.setItem("cutboard-project-v1",JSON.stringify(project));$("saveStatus").textContent="保存済み · "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}catch(e){$("saveStatus").textContent="保存容量が不足しています。画像を減らして書き出してください。"}}
+function persist(skipCloud=false){try{localStorage.setItem("cutboard-project-v1",JSON.stringify(project));$("saveStatus").textContent="保存済み · "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}catch(e){$("saveStatus").textContent="保存容量が不足しています。画像を減らして書き出してください。"}if(!skipCloud&&cloudProjectId&&currentUser&&!cloudConflict){clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(saveCloudChanges,1200)}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem("cutboard-project-v1")||"null");if(d&&Array.isArray(d.cuts))project=normalizeProject(d)}catch(e){}}
+function cloudMessage(message){$("cloudStatus").textContent=message}
+function cloudErrorMessage(err){const code=err?.code||"";if(code.includes("permission-denied"))return "Firestoreへのアクセスが拒否されました。Firebase ConsoleでFirestoreルールを設定してください。";if(code.includes("unauthorized-domain"))return "このサイトのドメインがFirebase Authenticationの承認済みドメインにありません。Firebase Consoleで追加してください。";if(code.includes("popup-blocked"))return "ログイン画面がブラウザにブロックされました。ポップアップを許可して再度お試しください。";if(code.includes("email-already-in-use"))return "このメールアドレスは登録済みです。ログインをお試しください。";if(code.includes("weak-password"))return "パスワードは6文字以上にしてください。";if(code.includes("operation-not-allowed"))return "このログイン方法がFirebase Authenticationで有効になっていません。Firebase Consoleのログイン方法を確認してください。";if(code.includes("invalid-credential")||code.includes("invalid-login-credentials")||code.includes("wrong-password")||code.includes("user-not-found"))return "メールアドレスまたはパスワードを確認してください。";if(code.includes("network-request-failed"))return "通信に失敗しました。ネットワークを確認して再度お試しください。";return "処理に失敗しました。時間をおいて再度お試しください（"+(code||"エラー")+"）。"}
+function emailVerificationNeeded(user){return !!user&&!!user.providerData?.some(p=>p.providerId==="password")&&!user.emailVerified}
+function updateAuthUi(user,message){const waiting=emailVerificationNeeded(user);$("accountStatus").textContent=user?"ログイン中："+(user.email||user.displayName||"Googleアカウント")+(waiting?"（メール確認待ち）":""):"未接続";$("googleLogin").hidden=!!user;$("emailLogin").hidden=!!user;$("emailSignup").hidden=!!user;$("resetPasswordBtn").hidden=!!user;$("logoutBtn").hidden=!user;$("cloudControls").hidden=!user||waiting;$("emailVerificationControls").hidden=!waiting;if(waiting)$("emailVerificationText").textContent=(user.email||"登録メールアドレス")+" 宛ての確認メールを開き、メールアドレスを確認してください。確認が終わるまではクラウド保存を利用できません。";if(message)cloudMessage(message);else if(waiting)cloudMessage("メール確認が必要です。受信トレイのリンクを開いたあと「確認状態を更新」を押してください。");else cloudMessage(user?"ログインしました。ローカルデータはそのままです。クラウド保存・読み込みは下の操作から選べます。":"ローカル保存は有効です。ログイン後もクラウドとの読み書きは選択するまで行いません。")}
+function requireCloud(){if(!auth||!db)throw new Error("Firebase SDKを読み込めません。ネットワークを確認してページを再読み込みしてください。");if(!currentUser)throw new Error("先にログインしてください");if(emailVerificationNeeded(currentUser))throw new Error("確認メールのリンクを開き、メール確認を完了してください")}
+function cloudDoc(id){return db.collection("users").doc(currentUser.uid).collection("projects").doc(id)}
+function cloudPayload(){const payload=JSON.stringify(project);const bytes=new Blob([payload]).size;if(bytes>850*1024)throw new Error("このプロジェクトは画像を含めて約850 KiBを超えています。Firestoreの1 MiB上限を超える可能性があるため、クラウド保存できません。画像を減らすかJSONバックアップを利用してください。");return JSON.parse(payload)}
+async function refreshCloudProjects(){try{requireCloud();cloudMessage("クラウドの一覧を読み込み中…");const snap=await db.collection("users").doc(currentUser.uid).collection("projects").get();const select=$("cloudProjects");select.replaceChildren(new Option("読み込むプロジェクトを選択", ""));const docs=snap.docs.sort((a,b)=>(b.data().updatedAt?.toMillis?.()||0)-(a.data().updatedAt?.toMillis?.()||0));for(const doc of docs){const d=doc.data();select.add(new Option((d.name||"無題の絵コンテ")+" · "+(d.project?.cuts?.length||0)+"カット",doc.id))}cloudMessage(docs.length?"クラウドの一覧を更新しました。読み込みはプロジェクトを選んで実行してください。":"クラウド保存はまだありません。ローカルのデータを新規保存できます。")}catch(e){cloudMessage(e.message?.startsWith("Firebase")||e.message?.startsWith("先に")?e.message:cloudErrorMessage(e))}}
+async function saveLocalAsCloud(){try{requireCloud();const data=cloudPayload(),ref=await db.collection("users").doc(currentUser.uid).collection("projects").add({name:data.name||"無題の絵コンテ",project:data,version:1,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});cloudProjectId=ref.id;cloudBaseVersion=1;cloudConflict=false;await refreshCloudProjects();$("cloudProjects").value=ref.id;cloudMessage("クラウドに新規保存しました。以後の編集はローカルにも保存し、約1秒後にクラウドへ同期します。")}catch(e){cloudMessage(e.message?.includes("Firestoreの1 MiB")||e.message?.startsWith("先に")||e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}}
+async function saveCloudChanges(){if(!cloudProjectId||!currentUser||cloudConflict)return;const uid=currentUser.uid,id=cloudProjectId,expected=cloudBaseVersion;try{const data=cloudPayload(),ref=db.collection("users").doc(uid).collection("projects").doc(id);cloudMessage("クラウドへ保存中…");const version=await db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists||snap.data().version!==expected){const conflict=new Error("別の端末で更新された可能性があります。上書きを停止しました。一覧を更新し、どちらのデータを使うか選んでください。");conflict.code="cloud-conflict";throw conflict}const next=expected+1;tx.update(ref,{name:data.name||"無題の絵コンテ",project:data,version:next,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});return next});cloudBaseVersion=version;cloudMessage("クラウドへ保存しました。")}catch(e){if(e.code==="cloud-conflict"){cloudConflict=true;cloudMessage(e.message)}else cloudMessage(e.message?.includes("Firestoreの1 MiB")?e.message:cloudErrorMessage(e))}}
+async function loadSelectedCloud(){try{requireCloud();const id=$("cloudProjects").value;if(!id)throw new Error("先にクラウドプロジェクトを選択してください");if(!confirm("現在表示中のプロジェクトを、選択したクラウドデータで置き換えます。ローカルの現在データをJSON書き出ししていない場合はキャンセルしてください。続けますか？"))return;const snap=await cloudDoc(id).get();if(!snap.exists)throw new Error("選択したクラウドプロジェクトが見つかりません。一覧を更新してください。");const data=snap.data();if(!data.project||!Array.isArray(data.project.cuts))throw new Error("クラウドデータの形式を確認できませんでした。ローカルデータは変更していません。");project=normalizeProject(data.project);selectedId=project.cuts[0]?.id||null;cloudProjectId=id;cloudBaseVersion=data.version||0;cloudConflict=false;render();persist(true);cloudMessage("クラウドプロジェクトを読み込みました。以後の編集はローカルにも保存し、約1秒後に同期します。")}catch(e){cloudMessage(e.message?.startsWith("先に")||e.message?.startsWith("選択")||e.message?.startsWith("クラウドデータ")?e.message:cloudErrorMessage(e))}}
+function setupAuth(){if(!auth){$("accountStatus").textContent="Firebase未接続";cloudMessage("Firebase SDKの読み込みに失敗しました。ネットワークを確認してください。");return}auth.languageCode="ja";auth.onAuthStateChanged(user=>{const uid=user?.uid||null;if(uid!==lastAuthUid){clearTimeout(cloudSaveTimer);cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;lastAuthUid=uid}currentUser=user;updateAuthUi(user)})}
 function total(){return project.cuts.reduce((a,c)=>a+(Number(c.duration)||0),0)}
 function cameraName(id){let p=allPresets().find(x=>x.id===id);return p?p.name:"未設定"}
 function renderCameraList(){let chosen=project.cuts.find(c=>c.id===selectedId);$("cameraList").innerHTML=allPresets().map(p=>`<button class="camera-option ${chosen&&chosen.camera===p.id?"active":""}" data-camera="${esc(p.id)}"><span class="num">${esc(p.id)}</span><span><b>${esc(p.name)}</b><small>${esc(p.description||p.english||"カスタム演出")}</small></span></button>`).join("");}
 function render(){
- $("projectName").value=project.name;$("projectMemo").value=project.memo;$("heading").textContent=project.name||"無題の絵コンテ";
+ $("projectName").value=project.name;$("projectDate").value=project.date||"";$("projectMemo").value=project.memo;$("heading").textContent=project.name||"無題の絵コンテ";
  $("cutCount").textContent=project.cuts.length;$("totalTime").textContent=total()+"秒";
  $("empty").hidden=project.cuts.length>0;
  $("cuts").innerHTML=project.cuts.map((c,i)=>{let cam=allPresets().find(p=>p.id===c.camera);let preview=c.drawing||c.image;
- return `<article class="cut" data-id="${c.id}">
- <div class="cuthead"><span class="cutnum">CUT ${String(i+1).padStart(2,"0")}</span><span class="muted">${Number(c.duration)||0}秒</span></div>
+ return `<article class="cut" data-id="${esc(c.id)}">
+ <div class="cuthead"><span class="cutnum">CUT ${esc(c.cutNumber??String(i+1))}</span><span class="muted">${Number(c.duration)||0}秒</span></div>
  <div class="cutbody">
- <div class="sketch" data-preview="${c.id}">${preview?`<img src="${preview}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
- <div class="cutactions"><button class="btn small" data-action="draw" data-id="${c.id}">✎ 描く</button><button class="btn small" data-action="image" data-id="${c.id}">▧ 画像</button><button class="btn small" data-action="up" data-id="${c.id}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${c.id}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${c.id}">複製</button><button class="btn small" data-action="delete" data-id="${c.id}">削除</button></div>
- <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${c.id}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
+ <div class="sketch" data-preview="${esc(c.id)}">${preview?`<img src="${esc(preview)}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
+ <div class="cutactions"><button class="btn small" data-action="draw" data-id="${esc(c.id)}">✎ 描く</button><button class="btn small" data-action="cg" data-id="${esc(c.id)}">♟ 3Dシーン</button><button class="btn small" data-action="image" data-id="${esc(c.id)}">▧ 画像</button><button class="btn small" data-action="up" data-id="${esc(c.id)}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${esc(c.id)}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${esc(c.id)}">複製</button><button class="btn small" data-action="delete" data-id="${esc(c.id)}">削除</button></div>
+ <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${esc(c.id)}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
  ${cam?`<p class="muted" style="margin:-3px 0 8px">${esc(cam.description||cam.english||"")}</p>`:""}
- <div class="field"><label>秒数</label><input type="number" min="0.1" max="999" step="0.5" data-field="duration" data-id="${c.id}" value="${esc(c.duration)}"></div>
- <div class="field"><label>場面・被写体</label><input data-field="scene" data-id="${c.id}" value="${esc(c.scene)}" placeholder="例：サビでメンバー全員"></div>
- <div class="field"><label>演出・カメラ指示</label><textarea data-field="description" data-id="${c.id}" placeholder="例：歌い出しに合わせてゆっくり寄る">${esc(c.description)}</textarea></div>
+ <div class="field"><label>カット番号（重複可）</label><input data-field="cutNumber" data-id="${esc(c.id)}" value="${esc(c.cutNumber??String(i+1))}" placeholder="例：12A、3-2"></div>
+ <div class="field"><label>シーン番号（重複可）</label><input data-field="sceneNumber" data-id="${esc(c.id)}" value="${esc(c.sceneNumber??"")}" placeholder="例：SCENE 2"></div>
+ <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${esc(c.id)}" value="${esc(c.scene)}" placeholder="例：駅前・人物の表情"></div>
+ <div class="field"><label>秒数</label><input type="number" min="0.1" max="999" step="0.5" data-field="duration" data-id="${esc(c.id)}" value="${esc(c.duration)}"></div>
+ <div class="field"><label>演出・カメラ指示</label><textarea data-field="description" data-id="${esc(c.id)}" placeholder="例：歌い出しに合わせてゆっくり寄る">${esc(c.description)}</textarea></div>
  </div></article>`}).join("");
  renderCameraList();
 }
@@ -155,24 +255,53 @@ function addCut(){let c=freshCut();project.cuts.push(c);selectedId=c.id;render()
 function getCut(id){return project.cuts.find(c=>c.id===id)}
 function move(id,delta){let i=project.cuts.findIndex(c=>c.id===id),j=i+delta;if(j<0||j>=project.cuts.length)return;[project.cuts[i],project.cuts[j]]=[project.cuts[j],project.cuts[i]];render();persist()}
 function exportProject(){const blob=new Blob([JSON.stringify(project,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(project.name||"cutboard").replace(/[\\/:*?"<>|]/g,"_")+".json";a.click();URL.revokeObjectURL(a.href)}
-function importProject(file){if(!file)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.cuts))throw Error();project=normalizeProject({name:d.name||"読み込んだ絵コンテ",memo:d.memo||"",cuts:d.cuts,customCameras:d.customCameras||[]});selectedId=project.cuts[0]?.id||null;render();persist();alert("読み込みました")}catch(e){alert("このJSONファイルは読み込めませんでした")}};r.readAsText(file)}
+function importProject(file){if(!file)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.cuts))throw Error();cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;project=normalizeProject({name:d.name||"読み込んだ絵コンテ",date:d.date||new Date().toISOString().slice(0,10),memo:d.memo||"",cuts:d.cuts,customCameras:d.customCameras||[]});selectedId=project.cuts[0]?.id||null;render();persist(true);cloudMessage("JSONを読み込みました。クラウドへは自動で上書きされません。");alert("読み込みました")}catch(e){alert("このJSONファイルは読み込めませんでした")}};r.readAsText(file)}
 function openDraw(id){drawTarget=id;const c=getCut(id),canvas=$("drawCanvas"),ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);let src=c?.drawing||c?.image;if(src){let img=new Image();img.onload=()=>ctx.drawImage(img,0,0,canvas.width,canvas.height);img.src=src}$("drawDialog").showModal()}
 function point(e){let r=$("drawCanvas").getBoundingClientRect();return {x:(e.clientX-r.left)*$("drawCanvas").width/r.width,y:(e.clientY-r.top)*$("drawCanvas").height/r.height}}
 const dc=$("drawCanvas");dc.addEventListener("pointerdown",e=>{drawing=true;lastPoint=point(e);dc.setPointerCapture(e.pointerId)});dc.addEventListener("pointermove",e=>{if(!drawing)return;let p=point(e),ctx=dc.getContext("2d");ctx.strokeStyle="#111827";ctx.lineWidth=5;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(lastPoint.x,lastPoint.y);ctx.lineTo(p.x,p.y);ctx.stroke();lastPoint=p});["pointerup","pointercancel","pointerleave"].forEach(ev=>dc.addEventListener(ev,()=>{drawing=false;lastPoint=null}));
 function imageToCut(file,id,asDrawing=false){if(!file)return;let r=new FileReader();r.onload=()=>{let c=getCut(id);if(c){if(asDrawing)c.drawing=r.result;else c.image=r.result;render();persist()}};r.readAsDataURL(file)}
-$("cuts").addEventListener("input",e=>{let el=e.target,id=el.dataset.id,field=el.dataset.field;if(!field)return;let c=getCut(id);if(!c)return;c[field]=field==="duration"?Math.max(0,Number(el.value)||0):el.value;if(field==="camera"){selectedId=id;renderCameraList()}if(field==="duration"){let head=el.closest(".cut").querySelector(".cuthead .muted");if(head)head.textContent=c.duration+"秒";$("totalTime").textContent=total()+"秒"}if(field==="scene"||field==="description"||field==="duration")persist()});
+$("cuts").addEventListener("input",e=>{let el=e.target,id=el.dataset.id,field=el.dataset.field;if(!field)return;let c=getCut(id);if(!c)return;c[field]=field==="duration"?Math.max(0,Number(el.value)||0):el.value;if(field==="camera"){selectedId=id;renderCameraList()}if(field==="duration"){let head=el.closest(".cut").querySelector(".cuthead .muted");if(head)head.textContent=c.duration+"秒";$("totalTime").textContent=total()+"秒"}if(field==="scene"||field==="sceneNumber"||field==="cutNumber"||field==="description"||field==="duration")persist()});
 $("cuts").addEventListener("change",e=>{let el=e.target;if(el.dataset.field){let c=getCut(el.dataset.id);if(c){c[el.dataset.field]=el.dataset.field==="duration"?Math.max(0,Number(el.value)||0):el.value;render();persist()}}});
-$("cuts").addEventListener("click",e=>{let b=e.target.closest("button[data-action]");if(!b)return;let {action,id}=b.dataset;selectedId=id;if(action==="draw")openDraw(id);if(action==="image"){$("imageInput").dataset.id=id;$("imageInput").click()}if(action==="up")move(id,-1);if(action==="down")move(id,1);if(action==="duplicate"){let c=getCut(id);let n={...c,id:uid()};let i=project.cuts.findIndex(x=>x.id===id);project.cuts.splice(i+1,0,n);selectedId=n.id;render();persist()}if(action==="delete"){if(confirm("このカットを削除しますか？")){project.cuts=project.cuts.filter(c=>c.id!==id);selectedId=project.cuts[0]?.id||null;render();persist()}}});
+// 3D scene studio: Three.js handles the scene; these controls keep the existing pose presets.
+let cgTarget=null;
+const cgDefaults={cgLeftArm:-20,cgRightArm:20,cgLeftLeg:-5,cgRightLeg:5,cgBody:0,cgHead:0};
+const cgPresets={
+ stand:{...cgDefaults},walk:{...cgDefaults,cgLeftArm:35,cgRightArm:-35,cgLeftLeg:-28,cgRightLeg:28},run:{...cgDefaults,cgLeftArm:70,cgRightArm:-65,cgLeftLeg:-55,cgRightLeg:45,cgBody:18},sit:{...cgDefaults,cgLeftArm:-10,cgRightArm:10,cgLeftLeg:75,cgRightLeg:70,cgBody:-12},fall:{...cgDefaults,cgLeftArm:-100,cgRightArm:75,cgLeftLeg:55,cgRightLeg:-45,cgBody:55,cgHead:-15},armsup:{...cgDefaults,cgLeftArm:-135,cgRightArm:135,cgLeftLeg:-4,cgRightLeg:4}
+};
+function cgValues(){let v={};Object.keys(cgDefaults).forEach(id=>v[id]=Number($(id).value));return v}
+function setCgValues(v){Object.keys(cgDefaults).forEach(id=>{$(id).value=v[id]??cgDefaults[id];$(id+'Val').textContent=$(id).value+'°'});window.updateCGPose?.(cgValues())}
+function openCg(id){cgTarget=id;const cut=getCut(id);setCgValues(cut?.scene3d?.pose||cgDefaults);$('cgDialog').showModal();$('sceneLoadStatus').textContent='3Dシーンを準備しています…';requestAnimationFrame(()=>{const ready=window.CUTBOARD3D_READY;if(!ready){$('sceneLoadStatus').textContent='3Dエンジンが読み込まれていません。HTTPSで公開されたサイトを開き、通信を確認してください。';return}ready.then(api=>{api.open(cut?.scene3d||null);$('sceneLoadStatus').textContent='ドラッグ操作と位置入力でシーンを編集できます。'}).catch(()=>{$('sceneLoadStatus').textContent='3Dシーンを開始できません。WebGL対応ブラウザと通信を確認してください。'})})}
+Object.keys(cgDefaults).forEach(id=>$(id).addEventListener('input',()=>{$(id+'Val').textContent=$(id).value+'°';window.updateCGPose?.(cgValues())}));
+document.querySelectorAll('[data-pose]').forEach(b=>b.addEventListener('click',()=>setCgValues(cgPresets[b.dataset.pose]||cgDefaults)));
+$('cgReset').addEventListener('click',()=>{setCgValues(cgDefaults);window.reset3DScene?.()});$('cgFlip').addEventListener('click',()=>window.flip3DPerson?.());
+$('closeCg').addEventListener('click',()=>$('cgDialog').close());$('cancelCg').addEventListener('click',()=>$('cgDialog').close());
+$('saveCg').addEventListener('click',()=>{let c=getCut(cgTarget);if(!c)return;try{c.scene3d=window.get3DSceneData?.()||null;c.drawing=window.capture3DScene?.()||'';if(!c.drawing)throw new Error('3Dプレビューを取得できません');c.image='';if(!c.scene)c.scene='3Dシーン';if(!c.description)c.description='3Dシーンスタジオで作成';render();persist();$('cgDialog').close()}catch(e){cloudMessage(e.message||'3Dプレビューを保存できませんでした')}});
+$("cuts").addEventListener("click",e=>{let b=e.target.closest("button[data-action]");if(!b)return;let {action,id}=b.dataset;selectedId=id;if(action==="draw")openDraw(id);if(action==="cg")openCg(id);if(action==="image"){$("imageInput").dataset.id=id;$("imageInput").click()}if(action==="up")move(id,-1);if(action==="down")move(id,1);if(action==="duplicate"){let c=getCut(id);let n={...c,id:uid()};let i=project.cuts.findIndex(x=>x.id===id);project.cuts.splice(i+1,0,n);selectedId=n.id;render();persist()}if(action==="delete"){if(confirm("このカットを削除しますか？")){project.cuts=project.cuts.filter(c=>c.id!==id);selectedId=project.cuts[0]?.id||null;render();persist()}}});
 $("cameraList").addEventListener("click",e=>{let b=e.target.closest("[data-camera]");if(!b)return;if(!selectedId){addCut()}let c=getCut(selectedId);if(c)c.camera=b.dataset.camera;render();persist()});
 $("projectName").addEventListener("input",e=>{project.name=e.target.value;$("heading").textContent=project.name||"無題の絵コンテ";persist()});
 $("projectMemo").addEventListener("input",e=>{project.memo=e.target.value;persist()});
+$("projectDate").addEventListener("change",e=>{project.date=e.target.value;persist()});
 ["addTop","addMobile","emptyAdd"].forEach(id=>$(id).addEventListener("click",addCut));
 $("sortBtn").addEventListener("click",()=>{render();window.scrollTo({top:0,behavior:"smooth"})});
+$("accountBtn").addEventListener("click",()=>{$("accountSection").scrollIntoView({behavior:"smooth",block:"center"});$("displayName").focus({preventScroll:true})});
+try{$("displayName").value=localStorage.getItem("cutboard-display-name")||""}catch(e){}
+setupAuth();
+$("googleLogin").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません。ネットワークを確認してください。");await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("emailLogin").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません");await auth.signInWithEmailAndPassword($("authEmail").value.trim(),$("authPassword").value)}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("emailSignup").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません");auth.languageCode="ja";const credential=await auth.createUserWithEmailAndPassword($("authEmail").value.trim(),$("authPassword").value);try{await credential.user.sendEmailVerification();updateAuthUi(credential.user,"登録完了："+credential.user.email+" で登録しました。確認メールを送信しました。メール内のリンクを開いてください。")}catch(mailError){updateAuthUi(credential.user,"登録は完了しましたが、確認メールを送信できませんでした。時間をおいて「確認メールを再送」をお試しください。")}}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("resetPasswordBtn").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません");const email=$("authEmail").value.trim();if(!email)throw new Error("先にメールアドレスを入力してください。");auth.languageCode="ja";await auth.sendPasswordResetEmail(email);cloudMessage(email+" 宛てにパスワード再設定メールを送信しました。受信トレイと迷惑メールをご確認ください。")}catch(e){cloudMessage(e.message?.startsWith("先に")||e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("resendVerification").addEventListener("click",async()=>{try{if(!currentUser||!emailVerificationNeeded(currentUser))return;auth.languageCode="ja";await currentUser.sendEmailVerification();cloudMessage(currentUser.email+" 宛てに確認メールを再送しました。")}catch(e){cloudMessage(cloudErrorMessage(e))}});
+$("refreshVerification").addEventListener("click",async()=>{try{if(!currentUser)return;await currentUser.reload();currentUser=auth.currentUser;updateAuthUi(currentUser,currentUser.emailVerified?"メールアドレスを確認できました。クラウド保存を利用できます。":"まだ確認が反映されていません。メールのリンクを開いたあと、もう一度お試しください。")}catch(e){cloudMessage(cloudErrorMessage(e))}});
+$("logoutBtn").addEventListener("click",async()=>{try{clearTimeout(cloudSaveTimer);currentUser=null;cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;await auth.signOut()}catch(e){cloudMessage(cloudErrorMessage(e))}});
+$("refreshCloud").addEventListener("click",refreshCloudProjects);
+$("saveCloudAs").addEventListener("click",saveLocalAsCloud);
+$("loadCloud").addEventListener("click",loadSelectedCloud);
+$("saveAccountSettings").addEventListener("click",async()=>{const name=$("displayName").value.trim();try{localStorage.setItem("cutboard-display-name",name);if(currentUser&&name)await currentUser.updateProfile({displayName:name});cloudMessage("表示名を保存しました。")}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
 ["exportBtn","exportBtn2"].forEach(id=>$(id).addEventListener("click",exportProject));
 ["importBtn","importBtn2"].forEach(id=>$(id).addEventListener("click",()=>$("jsonInput").click()));
 $("jsonInput").addEventListener("change",e=>{importProject(e.target.files[0]);e.target.value=""});
 $("imageInput").addEventListener("change",e=>{imageToCut(e.target.files[0],e.target.dataset.id);e.target.value=""});
-$("newProject").addEventListener("click",()=>{if(confirm("現在のプロジェクトを新規作成しますか？ 先にJSONを書き出すことをおすすめします。")){project={name:"新しい絵コンテ",memo:"",cuts:[],customCameras:[]};selectedId=null;render();persist()}});
+$("newProject").addEventListener("click",()=>{if(confirm("現在のプロジェクトを新規作成しますか？ 先にJSONを書き出すことをおすすめします。")){cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};selectedId=null;render();persist(true);cloudMessage("新しいローカルプロジェクトです。クラウドへ保存する場合は新規保存を選んでください。")}});
 $("printBtn").addEventListener("click",()=>window.print());
 $("closeDraw").addEventListener("click",()=>$("drawDialog").close());$("cancelDraw").addEventListener("click",()=>$("drawDialog").close());
 $("clearDraw").addEventListener("click",()=>{let ctx=dc.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,dc.width,dc.height)});
@@ -189,9 +318,142 @@ $("addCustomCamera").addEventListener("click",()=>{
  $("customName").value="";$("customEnglish").value="";$("customDescription").value="";
  renderCameraList();persist();alert("カスタム演出を登録しました。カットを選択して演出を設定できます。");
 });
+
+// Import reference storyboards: images become cuts; PDFs are rendered page-by-page with PDF.js.
+$("referenceImportBtn").addEventListener("click",()=>$("referenceInput").click());
+$("referenceInput").addEventListener("change",async e=>{
+ const files=Array.from(e.target.files||[]); if(!files.length)return;
+ const pdfFiles=files.filter(f=>f.type==="application/pdf"||/\.pdf$/i.test(f.name));
+ const imageFiles=files.filter(f=>f.type.startsWith("image/"));
+ for(const f of imageFiles){
+   const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)});
+   const cut=freshCut();cut.image=data;cut.scene=f.name.replace(/\.[^.]+$/,"");cut.description="受領した絵コンテ画像";project.cuts.push(cut);
+ }
+ for(const f of pdfFiles){
+   try{
+     if(!window.pdfjsLib) await loadPdfJs();
+     const buf=await f.arrayBuffer(),pdf=await pdfjsLib.getDocument({data:buf}).promise;
+     for(let n=1;n<=pdf.numPages;n++){
+       const page=await pdf.getPage(n),vp=page.getViewport({scale:1.35}),canvas=document.createElement("canvas");
+       canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);
+       await page.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+       const cut=freshCut();cut.image=canvas.toDataURL("image/jpeg",0.88);cut.scene=f.name.replace(/\.pdf$/i,"")+" / "+n+"ページ";cut.description="PDFから取り込んだ絵コンテ（ページ "+n+"）";project.cuts.push(cut);
+     }
+   }catch(err){alert("PDF「"+f.name+"」を読み込めませんでした。通信環境を確認するか、PDFをページ画像にして取り込んでください。")}
+ }
+ selectedId=project.cuts.at(-1)?.id||selectedId;render();persist();e.target.value="";
+ alert("取り込みました。シーン名を編集して作品・日付ごとに整理できます。");
+});
+function loadPdfJs(){return new Promise((resolve,reject)=>{
+ const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+ sc.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve()};
+ sc.onerror=reject;document.head.appendChild(sc);
+})}
+function safeFileName(s){return String(s||"cutboard").replace(/[\\/:*?"<>|]/g,"_").slice(0,80)}
+function downloadDataUrl(data,name){const a=document.createElement("a");a.href=data;a.download=name;document.body.appendChild(a);a.click();a.remove()}
+$("exportImagesBtn").addEventListener("click",()=>{
+ if(!project.cuts.length){alert("画像にするカットがありません");return}
+ // Export each storyboard panel as an image, preserving any imported/drawn artwork and cut metadata.
+ project.cuts.forEach((c,i)=>{
+   const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=1200;canvas.height=900;
+   ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.fillStyle="#172033";ctx.font="bold 32px sans-serif";ctx.fillText((project.name||"CUT BOARD")+"  /  "+(project.date||""),48,55);
+   ctx.fillStyle="#1674f8";ctx.font="bold 28px sans-serif";ctx.fillText("CUT "+String(i+1).padStart(2,"0")+"   "+(c.duration||0)+"秒",48,105);
+   const drawText=(txt,x,y,max=1080)=>{ctx.fillStyle="#172033";ctx.font="24px sans-serif";const str=String(txt||"");let line="",yy=y;for(const ch of str){if(ctx.measureText(line+ch).width>max){ctx.fillText(line,x,yy);line=ch;yy+=32}else line+=ch}if(line)ctx.fillText(line,x,yy);return yy+38};
+   let y=drawText("シーン： "+(c.scene||"未設定"),48,150);
+   const imgSrc=c.drawing||c.image;
+   const drawMeta=()=>{
+     y=drawText("カメラ： "+cameraName(c.camera),48,640);
+     y=drawText("演出： "+(c.description||"なし"),48,y);
+     canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=safeFileName(project.name)+"_"+safeFileName(project.date)+"_CUT"+String(i+1).padStart(2,"0")+".png";a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}, "image/png");
+   };
+   if(imgSrc){const img=new Image();img.onload=()=>{const maxW=1104,maxH=450,scale=Math.min(maxW/img.width,maxH/img.height);ctx.drawImage(img,48,190,img.width*scale,img.height*scale);drawMeta()};img.onerror=drawMeta;img.src=imgSrc}else drawMeta();
+ });
+});
+
 loadLocal();selectedId=project.cuts[0]?.id||null;render();
 if(!project.customCameras)project.customCameras=[];
 if(!project.cuts.length){/* Start with one useful sample cut */project.cuts=[Object.assign(freshCut(),{camera:"03",duration:3,scene:"人物の表情",description:"ゆっくり寄って感情を見せる"})];selectedId=project.cuts[0].id;render();persist()}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {TransformControls} from 'three/addons/controls/TransformControls.js';
+
+const $3=id=>document.getElementById(id),viewport=$3('cgViewport');
+const material=(color,roughness=.82)=>new THREE.MeshStandardMaterial({color,roughness});
+const mats={skin:material('#c4ccd5'),shirt:material('#42536a'),pants:material('#303b4b'),wood:material('#95623c'),woodLight:material('#b47a4a'),leaf:material('#4f7a4c'),leaf2:material('#6d9358'),metal:material('#3f4b5b')};
+let renderer,scene,editorCamera,shotCamera,orbit,gizmo,cameraHelper,cameraMarker,person=null,roots=[],selected=null,shotView=false,raf=0,resizeObserver;
+const V=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
+function box(parent,w,h,d,mat,pos){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function sphere(parent,r,mat,pos,scale=[1,1,1]){const m=new THREE.Mesh(new THREE.SphereGeometry(r,20,14),mat);m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;parent.add(m);return m}
+function cylinder(parent,rt,rb,h,mat,pos,segments=12){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segments),mat);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function segment(parent,len,r1,r2,mat){return cylinder(parent,r1,r2,len,mat,[0,-len/2,0],12)}
+function createPerson(pose={}){
+ const g=new THREE.Group();g.userData={id:'person',kind:'person',label:'人物'};
+ const torso=sphere(g,.39,mats.shirt,[0,1.03,0],[.78,1.2,.48]);
+ cylinder(g,.12,.14,.18,mats.skin,[0,1.48,0]);sphere(g,.22,mats.skin,[0,1.77,0],[.82,1.12,.83]);
+ const arms=[];for(const side of [-1,1]){const shoulder=new THREE.Group();shoulder.position.set(side*.29,1.32,0);g.add(shoulder);segment(shoulder,.48,.11,.085,mats.shirt);const elbow=new THREE.Group();elbow.position.y=-.48;shoulder.add(elbow);segment(elbow,.43,.08,.055,mats.skin);sphere(elbow,.075,mats.skin,[0,-.43,0],[.8,1.1,.8]);arms.push({shoulder,elbow,side})}
+ const legs=[];for(const side of [-1,1]){const hip=new THREE.Group();hip.position.set(side*.16,.68,0);g.add(hip);segment(hip,.49,.14,.105,mats.pants);const knee=new THREE.Group();knee.position.y=-.49;hip.add(knee);segment(knee,.46,.095,.07,mats.pants);box(knee,.12,.09,.25,mats.metal,[0,-.47,.08]);legs.push({hip,knee,side})}
+ g.userData.applyPose=v=>{for(const a of arms){const n=a.side<0?'cgLeftArm':'cgRightArm';a.shoulder.rotation.z=(Number(v[n])||0)*Math.PI/180*(a.side<0?1:-1)}for(const l of legs){const n=l.side<0?'cgLeftLeg':'cgRightLeg';l.hip.rotation.x=(Number(v[n])||0)*Math.PI/180;l.knee.rotation.x=(Number(v[n])||0)>35?.6:0}torso.rotation.z=(Number(v.cgBody)||0)*Math.PI/180*.35;g.children.find(c=>c.position?.y===1.77)?.rotation.set(0,(Number(v.cgHead)||0)*Math.PI/180,0)};
+ g.userData.applyPose(pose);return g
+}
+function createProp(kind){
+ const g=new THREE.Group();g.userData={id:'obj-'+Math.random().toString(36).slice(2,9),kind,label:{chair:'椅子',bench:'ベンチ',tree:'木'}[kind]||kind};
+ if(kind==='chair'){
+  box(g,.78,.12,.72,mats.wood,[0,.53,0]);box(g,.78,.72,.12,mats.woodLight,[0,.94,-.29]);
+  for(const x of [-.3,.3])for(const z of [-.26,.26])cylinder(g,.045,.06,.52,mats.wood,[x,.26,z],8);
+  for(const x of [-.3,.3])cylinder(g,.045,.05,.76,mats.wood,[x,.65,-.29],8);
+ }else if(kind==='bench'){
+  box(g,1.75,.14,.6,mats.wood,[0,.58,0]);box(g,1.75,.52,.12,mats.woodLight,[0,.89,-.24]);
+  for(const x of [-.65,.65]){for(const z of [-.18,.18])cylinder(g,.05,.07,.56,mats.metal,[x,.28,z],8);box(g,.12,.1,.46,mats.metal,[x,.3,0])}
+ }else if(kind==='tree'){
+  cylinder(g,.16,.23,1.65,mats.wood,[0,.82,0],10);const c1=new THREE.Mesh(new THREE.ConeGeometry(.72,1.25,9),mats.leaf);c1.position.y=1.85;c1.castShadow=true;g.add(c1);const c2=new THREE.Mesh(new THREE.ConeGeometry(.54,1.05,9),mats.leaf2);c2.position.set(0,2.45,0);c2.castShadow=true;g.add(c2)
+ }
+ return g
+}
+function addRoot(g){roots.push(g);scene.add(g);markPickable(g);refreshSelect();selectRoot(g);return g}
+function markPickable(g){g.traverse(o=>{if(o.isMesh)o.userData.root=g})}
+function refreshSelect(){const s=$3('sceneSelection'),old=selected?.userData.id;s.replaceChildren();for(const g of roots)s.add(new Option(g.userData.label,g.userData.id));if(old)s.value=old}
+function syncObjectInputs(){if(!selected)return;for(const [id,k] of [['objectX','x'],['objectY','y'],['objectZ','z']])$3(id).value=selected.position[k].toFixed(2);}
+function selectRoot(g){selected=g;refreshSelect();if(gizmo)gizmo.attach(g);syncObjectInputs()}
+function vectorFromInputs(prefix){return V(Number($3(prefix+'X').value)||0,Number($3(prefix+'Y').value)||0,Number($3(prefix+'Z').value)||0)}
+function updateShotCamera(){if(!shotCamera)return;shotCamera.position.copy(vectorFromInputs('camera'));const target=vectorFromInputs('target');shotCamera.lookAt(target);shotCamera.fov=Number($3('cameraFov').value)||45;shotCamera.updateProjectionMatrix();cameraHelper?.update();if(cameraMarker){cameraMarker.position.copy(shotCamera.position);cameraMarker.lookAt(target)}$3('cameraFovValue').value=shotCamera.fov+'°';$3('cameraFovValue').textContent=shotCamera.fov+'°'}
+function setupScene(){
+ if(renderer)return;
+ renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;viewport.appendChild(renderer.domElement);
+ scene=new THREE.Scene();scene.background=new THREE.Color('#dce6f1');
+ editorCamera=new THREE.PerspectiveCamera(48,1,.1,100);editorCamera.position.set(5,4.2,7);
+ shotCamera=new THREE.PerspectiveCamera(45,1,.1,100);
+ orbit=new OrbitControls(editorCamera,renderer.domElement);orbit.target.set(0,1,0);orbit.enableDamping=true;
+ scene.add(new THREE.HemisphereLight(0xffffff,0x657080,2));const sun=new THREE.DirectionalLight(0xffffff,3);sun.position.set(4,8,6);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
+ const floor=new THREE.Mesh(new THREE.PlaneGeometry(40,40),material('#b9c6d4'));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;floor.userData.floor=true;scene.add(floor);scene.add(new THREE.GridHelper(40,40,'#8291a2','#a6b1bd'));
+ cameraHelper=new THREE.CameraHelper(shotCamera);scene.add(cameraHelper);cameraMarker=new THREE.Group();cameraMarker.add(box(cameraMarker,.32,.2,.35,mats.metal,[0,0,0]));const lens=new THREE.Mesh(new THREE.ConeGeometry(.11,.32,12),material('#2c6c9f'));lens.rotation.x=-Math.PI/2;lens.position.z=-.29;cameraMarker.add(lens);scene.add(cameraMarker);
+ gizmo=new TransformControls(editorCamera,renderer.domElement);scene.add(gizmo.getHelper());gizmo.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);
+ gizmo.addEventListener('objectChange',()=>{if(gizmo.object===cameraMarker){for(const [id,k] of [['cameraX','x'],['cameraY','y'],['cameraZ','z']])$3(id).value=cameraMarker.position[k].toFixed(2);updateShotCamera()}else syncObjectInputs()});
+ const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.addEventListener('pointerdown',e=>{if(gizmo.axis!==null)return;const r=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(pointer,editorCamera);const hits=ray.intersectObjects(roots,true);if(hits.length){const root=hits[0].object.userData.root;if(root)selectRoot(root)}});
+ resizeObserver=new ResizeObserver(resize);resizeObserver.observe(viewport);resize();
+}
+function resize(){if(!renderer||!viewport.clientWidth||!viewport.clientHeight)return;renderer.setSize(viewport.clientWidth,viewport.clientHeight,false);for(const c of [editorCamera,shotCamera]){c.aspect=viewport.clientWidth/viewport.clientHeight;c.updateProjectionMatrix()}cameraHelper?.update()}
+function loadCamera(data){const c=data||{position:[3,2.6,5],target:[0,1,0],fov:45};[['cameraX',c.position?.[0]??3],['cameraY',c.position?.[1]??2.6],['cameraZ',c.position?.[2]??5],['targetX',c.target?.[0]??0],['targetY',c.target?.[1]??1],['targetZ',c.target?.[2]??0]].forEach(([id,v])=>$3(id).value=Number(v).toFixed(2));$3('cameraFov').value=c.fov??45;updateShotCamera()}
+function loadObjects(data){for(const old of roots)scene.remove(old);roots=[];person=null;for(const item of data?.objects||[]){const g=item.kind==='person'?createPerson(data.pose):createProp(item.kind);if(!g)continue;g.userData.id=item.id||g.userData.id;g.position.fromArray(item.position||[0,0,0]);if(Array.isArray(item.rotation))g.rotation.fromArray(item.rotation);else g.rotation.y=item.rotationY||0;g.scale.setScalar(item.scale||1);addRoot(g);if(item.kind==='person')person=g}if(!person){person=createPerson(window.cgValues?.());addRoot(person)}selectRoot(person);if(data?.pose)window.updateCGPose?.(data.pose)}
+function open(data){setupScene();cancelAnimationFrame(raf);loadCamera(data?.camera);loadObjects(data);shotView=false;$3('sceneViewToggle').textContent='撮影カメラの画角で表示';resize();animate()}
+function animate(){if(!$3('cgDialog').open)return;raf=requestAnimationFrame(animate);orbit.update();updateShotCamera();cameraHelper.visible=!shotView;cameraMarker.visible=!shotView;gizmo.getHelper().visible=!shotView;renderer.render(scene,shotView?shotCamera:editorCamera)}
+function saveData(){return {version:1,camera:{position:shotCamera.position.toArray(),target:V(Number($3('targetX').value)||0,Number($3('targetY').value)||0,Number($3('targetZ').value)||0).toArray(),fov:shotCamera.fov},pose:window.cgValues?.()||{},objects:roots.map(g=>({id:g.userData.id,kind:g.userData.kind,position:g.position.toArray(),rotation:g.rotation.toArray(),scale:g.scale.x}))}}
+function capture(){if(!renderer)return '';updateShotCamera();const helperWasVisible=cameraHelper.visible,markerWasVisible=cameraMarker.visible,gizmoWasVisible=gizmo.getHelper().visible;cameraHelper.visible=false;cameraMarker.visible=false;gizmo.getHelper().visible=false;renderer.render(scene,shotCamera);const data=renderer.domElement.toDataURL('image/png');cameraHelper.visible=helperWasVisible;cameraMarker.visible=markerWasVisible;gizmo.getHelper().visible=gizmoWasVisible;renderer.render(scene,shotView?shotCamera:editorCamera);return data}
+function addProp(kind){const g=createProp(kind);g.position.set(1+roots.filter(x=>x.userData.kind!=='person').length*.8,0,0);addRoot(g)}
+function bindInputs(){
+ $3('sceneSelection').addEventListener('change',()=>selectRoot(roots.find(g=>g.userData.id===$3('sceneSelection').value)));
+ for(const id of ['objectX','objectY','objectZ'])$3(id).addEventListener('input',()=>{if(!selected)return;selected.position.set(Number($3('objectX').value)||0,Number($3('objectY').value)||0,Number($3('objectZ').value)||0)});
+ for(const id of ['cameraX','cameraY','cameraZ','targetX','targetY','targetZ','cameraFov'])$3(id).addEventListener('input',updateShotCamera);
+ $3('addChair').addEventListener('click',()=>addProp('chair'));$3('addBench').addEventListener('click',()=>addProp('bench'));$3('addTree').addEventListener('click',()=>addProp('tree'));
+ $3('moveMode').addEventListener('click',()=>gizmo.setMode('translate'));$3('rotateMode').addEventListener('click',()=>gizmo.setMode('rotate'));$3('scaleMode').addEventListener('click',()=>gizmo.setMode('scale'));
+ $3('cameraMoveMode').addEventListener('click',()=>{gizmo.setMode('translate');gizmo.attach(cameraMarker)});
+ $3('removeObject').addEventListener('click',()=>{if(!selected)return;scene.remove(selected);roots=roots.filter(g=>g!==selected);selected=roots.find(g=>g.userData.kind==='person')||roots[0]||null;if(selected)selectRoot(selected);else{refreshSelect();gizmo.detach()}});
+ $3('sceneViewToggle').addEventListener('click',()=>{shotView=!shotView;$3('sceneViewToggle').textContent=shotView?'編集視点に戻る':'撮影カメラの画角で表示'});
+}
+bindInputs();
+window.CUTBOARD3D_READY=Promise.resolve({open,getData:saveData,capture});window.updateCGPose=v=>roots.find(g=>g.userData.kind==='person')?.userData.applyPose(v);window.get3DSceneData=saveData;window.capture3DScene=capture;window.reset3DScene=()=>{loadObjects(null);loadCamera(null)};window.flip3DPerson=()=>{if(person)person.rotation.y+=Math.PI};
 </script>
 </body>
 </html>
