@@ -54,7 +54,7 @@ GitHub公式ガイド: https://docs.github.com/en/pages/getting-started-with-git
 ## 保存・ログイン・同期
 プロジェクトは引き続きブラウザの `localStorage` に保存されます。ログイン後に「Google Driveを接続」を選ぶと、Google Driveのアプリ専用 `appDataFolder` を保存先として許可できます。メール／パスワードで登録した人も、自分のGoogleアカウントを追加接続できます。ローカルデータは自動で移行されません。「このローカルプロジェクトをDriveに新規保存」を選ぶと新しいファイルを作り、その後の編集を同期します。既存データを読み込む場合は確認を表示します。複数端末での同時更新は、Driveの更新情報を使って可能な範囲で検出し、競合時は自動上書きを止めます。
 
-利用開始前にFirebase AuthenticationでGoogleとメールアドレス／パスワードを有効にし、承認済みドメインに `thunder923.github.io` を追加してください。Google Cloud ConsoleではGoogle Drive APIを有効にし、OAuth同意画面を設定します。アプリが求める権限は `https://www.googleapis.com/auth/drive.appdata` で、各利用者のCUT BOARD専用の非表示領域だけにアクセスします。Firebase Authenticationはログインとアカウント識別に使用しますが、プロジェクト本文はFirestoreやFirebase Storageには保存しません。Firestoreルールの変更も不要です。
+利用開始前にFirebase AuthenticationでGoogleとメールアドレス／パスワードを有効にし、承認済みドメインに `thunder923.github.io` を追加してください。Google Cloud ConsoleではGoogle Drive APIを有効にし、OAuth同意画面を設定します。Google Auth Platformの「クライアント」にあるWebクライアントには、承認済みJavaScript生成元として `https://thunder923.github.io` を登録してください。アプリが求める権限は `https://www.googleapis.com/auth/drive.appdata` で、各利用者のCUT BOARD専用の非表示領域だけにアクセスします。Firebase Authenticationはログインとアカウント識別に使用しますが、プロジェクト本文はFirestoreやFirebase Storageには保存しません。Firestoreルールの変更も不要です。
 
 メールアドレスで新規登録すると、Firebaseから確認メールが送信されます。リンクを開いて確認が完了するまで、メール／パスワードアカウントのクラウド機能は使えません。設定画面から確認メールの再送と確認状態の更新ができます。ログイン画面の「パスワードを再設定」から再設定メールも送信できます。送信メールの件名や本文はFirebase ConsoleのAuthentication → Templatesで編集できます。
 
