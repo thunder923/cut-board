@@ -77,11 +77,19 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
     </div>
     <div class="section" id="accountSection">
       <h2>アカウント設定</h2>
-      <div class="sync"><b id="accountStatus">未接続</b><br>Google／Appleログインとクラウド同期は、Firebaseのプロジェクト設定後に有効になります。今のデータはこの端末に保存されています。</div>
+      <div class="sync"><b id="accountStatus">接続確認中…</b><br><span id="cloudStatus">ローカル保存は引き続き有効です。ログイン後も、クラウドとの読み書きは選択するまで行いません。</span></div>
+      <button class="btn" id="googleLogin" type="button" style="width:100%;margin-top:9px">Googleでログイン</button>
+      <div class="field"><label for="authEmail">メールアドレス</label><input id="authEmail" type="email" autocomplete="email"></div>
+      <div class="field"><label for="authPassword">パスワード</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6"></div>
+      <div class="toolbar"><button class="btn" id="emailLogin" type="button">ログイン</button><button class="btn" id="emailSignup" type="button">新規登録</button><button class="btn" id="logoutBtn" type="button" hidden>ログアウト</button></div>
+      <div id="cloudControls" hidden>
+        <div class="field"><label for="cloudProjects">保存済みクラウドプロジェクト</label><select id="cloudProjects"><option value="">一覧を読み込んでください</option></select></div>
+        <div class="toolbar"><button class="btn" id="refreshCloud" type="button">一覧を更新</button><button class="btn" id="loadCloud" type="button">選択したプロジェクトを読み込む</button></div>
+        <button class="btn primary" id="saveCloudAs" type="button" style="width:100%">このローカルプロジェクトをクラウドに新規保存</button>
+        <p class="muted">既存データは自動で移行・上書きしません。読み込みは現在のローカル表示を置き換えるため、事前に確認が表示されます。画像が多いプロジェクトはFirestoreのサイズ上限により保存できない場合があります。</p>
+      </div>
       <div class="field"><label for="displayName">表示名（この端末の設定）</label><input id="displayName" maxlength="60" placeholder="例：制作担当"></div>
       <button class="btn" id="saveAccountSettings" type="button" style="width:100%">表示名を保存</button>
-      <p class="muted">ログイン機能はまだ接続されていません。設定が済むまでは、JSONバックアップを定期的に保存してください。</p>
-      <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Consoleを開く</a>
     </div>
     <div class="section">
       <h2>絵コンテ出力</h2>
@@ -144,6 +152,9 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
 </dialog>
 <input id="jsonInput" type="file" accept="application/json,.json" hidden>
 <input id="imageInput" type="file" accept="image/*" hidden>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
 <script>
 const presets=[
 ["01","パン","Pan","カメラを横に振る"],["02","ティルト","Tilt","カメラを縦に振る"],["03","ドリーイン","Dolly in","カメラごと被写体に近づく"],["04","ズームイン","Zoom in","レンズで寄る（位置は動かない）"],["05","トラッキング","Tracking shot","被写体と並んで動く"],["06","オービット","Orbit (Arc shot)","被写体の周りを回り込む"],["07","クレーンアップ","Crane up","カメラが上へ昇っていく"],["08","ドリーズーム","Dolly zoom (Vertigo)","人物はそのまま背景だけ伸び縮み"],["09","ラックフォーカス","Rack focus","ピントを手前から奥へ送る"],["10","手持ち風","Handheld","わざと小さく揺らす"],["11","FPV","FPV drone shot","ドローンで突き進む疾走感"],["12","ダッチアングル","Dutch angle","画面を斜めに傾ける"],["13","スローモーション","Slow motion","動きをゆっくり見せる"],["14","スピードランプ","Speed ramp","速い→遅いと速さを変える"],["15","タイムラプス","Time-lapse","長い時間を早送りで見せる"],["16","フリーズフレーム","Freeze frame","動きを一瞬止める"],["17","ジャンプカット","Jump cut","同じ画角のまま時間を飛ばす"],["18","マッチカット","Match cut","形や動きをそろえて場面を変える"],["19","ホイップパン","Whip pan","素早く振ってブレで次へ"],["20","クロスディゾルブ","Cross dissolve","前後の映像を重ねて溶かす"],["21","ワイプ","Wipe","境目が横切って画面が入れ替わる"],["22","スマッシュカット","Smash cut","静かな場面から急に切り替える"],["23","Jカット","J-cut","次の場面の音が先に聞こえる"],["24","Lカット","L-cut","前の場面の音が後まで残る"]
@@ -159,6 +170,9 @@ const codeCameras=(Array.isArray(window.CUTBOARD_CUSTOM_CAMERAS)?window.CUTBOARD
   source:"code"
 }));
 let project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};
+const firebaseConfig={apiKey:"AIzaSyBzwtyBXsPLHtoKpnShSLN5HTgk4PGPjvA",authDomain:"cut-board-f508a.firebaseapp.com",projectId:"cut-board-f508a",storageBucket:"cut-board-f508a.firebasestorage.app",messagingSenderId:"441717303452",appId:"1:441717303452:web:5b9296560d0ef5f0126559",measurementId:"G-TMK5QWY0QR"};
+let auth=null,db=null,currentUser=null,cloudProjectId=null,cloudBaseVersion=null,cloudConflict=false,cloudSaveTimer=null,lastAuthUid=null;
+try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore()}catch(e){console.error("Firebase initialization failed",e)}
 function allPresets(){
  const builtins=presets.map(p=>({id:p[0],name:p[1],english:p[2],description:p[3],source:"builtin"}));
  const saved=(project.customCameras||[]).map(p=>({id:p.id,name:p.name,english:p.english||"",description:p.description||"",source:"project"}));
@@ -171,8 +185,18 @@ function normalizeProject(d){
 }
 function freshCut(){return {id:uid(),cutNumber:String(project.cuts.length+1),sceneNumber:"",duration:3,camera:"",description:"",scene:"",image:"",drawing:""}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function persist(){try{localStorage.setItem("cutboard-project-v1",JSON.stringify(project));$("saveStatus").textContent="保存済み · "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}catch(e){$("saveStatus").textContent="保存容量が不足しています。画像を減らして書き出してください。"}}
+function persist(skipCloud=false){try{localStorage.setItem("cutboard-project-v1",JSON.stringify(project));$("saveStatus").textContent="保存済み · "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}catch(e){$("saveStatus").textContent="保存容量が不足しています。画像を減らして書き出してください。"}if(!skipCloud&&cloudProjectId&&currentUser&&!cloudConflict){clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(saveCloudChanges,1200)}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem("cutboard-project-v1")||"null");if(d&&Array.isArray(d.cuts))project=normalizeProject(d)}catch(e){}}
+function cloudMessage(message){$("cloudStatus").textContent=message}
+function cloudErrorMessage(err){const code=err?.code||"";if(code.includes("permission-denied"))return "Firestoreへのアクセスが拒否されました。Firebase ConsoleでFirestoreルールを設定してください。";if(code.includes("unauthorized-domain"))return "このサイトのドメインがFirebase Authenticationの承認済みドメインにありません。Firebase Consoleで追加してください。";if(code.includes("popup-blocked"))return "ログイン画面がブラウザにブロックされました。ポップアップを許可して再度お試しください。";if(code.includes("email-already-in-use"))return "このメールアドレスは登録済みです。ログインをお試しください。";if(code.includes("weak-password"))return "パスワードは6文字以上にしてください。";if(code.includes("operation-not-allowed"))return "このログイン方法がFirebase Authenticationで有効になっていません。Firebase Consoleのログイン方法を確認してください。";if(code.includes("invalid-credential")||code.includes("invalid-login-credentials")||code.includes("wrong-password")||code.includes("user-not-found"))return "メールアドレスまたはパスワードを確認してください。";if(code.includes("network-request-failed"))return "通信に失敗しました。ネットワークを確認して再度お試しください。";return "処理に失敗しました。時間をおいて再度お試しください（"+(code||"エラー")+"）。"}
+function requireCloud(){if(!auth||!db)throw new Error("Firebase SDKを読み込めません。ネットワークを確認してページを再読み込みしてください。");if(!currentUser)throw new Error("先にログインしてください")}
+function cloudDoc(id){return db.collection("users").doc(currentUser.uid).collection("projects").doc(id)}
+function cloudPayload(){const payload=JSON.stringify(project);const bytes=new Blob([payload]).size;if(bytes>850*1024)throw new Error("このプロジェクトは画像を含めて約850 KiBを超えています。Firestoreの1 MiB上限を超える可能性があるため、クラウド保存できません。画像を減らすかJSONバックアップを利用してください。");return JSON.parse(payload)}
+async function refreshCloudProjects(){try{requireCloud();cloudMessage("クラウドの一覧を読み込み中…");const snap=await db.collection("users").doc(currentUser.uid).collection("projects").get();const select=$("cloudProjects");select.replaceChildren(new Option("読み込むプロジェクトを選択", ""));const docs=snap.docs.sort((a,b)=>(b.data().updatedAt?.toMillis?.()||0)-(a.data().updatedAt?.toMillis?.()||0));for(const doc of docs){const d=doc.data();select.add(new Option((d.name||"無題の絵コンテ")+" · "+(d.project?.cuts?.length||0)+"カット",doc.id))}cloudMessage(docs.length?"クラウドの一覧を更新しました。読み込みはプロジェクトを選んで実行してください。":"クラウド保存はまだありません。ローカルのデータを新規保存できます。")}catch(e){cloudMessage(e.message?.startsWith("Firebase")||e.message?.startsWith("先に")?e.message:cloudErrorMessage(e))}}
+async function saveLocalAsCloud(){try{requireCloud();const data=cloudPayload(),ref=await db.collection("users").doc(currentUser.uid).collection("projects").add({name:data.name||"無題の絵コンテ",project:data,version:1,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});cloudProjectId=ref.id;cloudBaseVersion=1;cloudConflict=false;await refreshCloudProjects();$("cloudProjects").value=ref.id;cloudMessage("クラウドに新規保存しました。以後の編集はローカルにも保存し、約1秒後にクラウドへ同期します。")}catch(e){cloudMessage(e.message?.includes("Firestoreの1 MiB")||e.message?.startsWith("先に")||e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}}
+async function saveCloudChanges(){if(!cloudProjectId||!currentUser||cloudConflict)return;const uid=currentUser.uid,id=cloudProjectId,expected=cloudBaseVersion;try{const data=cloudPayload(),ref=db.collection("users").doc(uid).collection("projects").doc(id);cloudMessage("クラウドへ保存中…");const version=await db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists||snap.data().version!==expected){const conflict=new Error("別の端末で更新された可能性があります。上書きを停止しました。一覧を更新し、どちらのデータを使うか選んでください。");conflict.code="cloud-conflict";throw conflict}const next=expected+1;tx.update(ref,{name:data.name||"無題の絵コンテ",project:data,version:next,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});return next});cloudBaseVersion=version;cloudMessage("クラウドへ保存しました。")}catch(e){if(e.code==="cloud-conflict"){cloudConflict=true;cloudMessage(e.message)}else cloudMessage(e.message?.includes("Firestoreの1 MiB")?e.message:cloudErrorMessage(e))}}
+async function loadSelectedCloud(){try{requireCloud();const id=$("cloudProjects").value;if(!id)throw new Error("先にクラウドプロジェクトを選択してください");if(!confirm("現在表示中のプロジェクトを、選択したクラウドデータで置き換えます。ローカルの現在データをJSON書き出ししていない場合はキャンセルしてください。続けますか？"))return;const snap=await cloudDoc(id).get();if(!snap.exists)throw new Error("選択したクラウドプロジェクトが見つかりません。一覧を更新してください。");const data=snap.data();if(!data.project||!Array.isArray(data.project.cuts))throw new Error("クラウドデータの形式を確認できませんでした。ローカルデータは変更していません。");project=normalizeProject(data.project);selectedId=project.cuts[0]?.id||null;cloudProjectId=id;cloudBaseVersion=data.version||0;cloudConflict=false;render();persist(true);cloudMessage("クラウドプロジェクトを読み込みました。以後の編集はローカルにも保存し、約1秒後に同期します。")}catch(e){cloudMessage(e.message?.startsWith("先に")||e.message?.startsWith("選択")||e.message?.startsWith("クラウドデータ")?e.message:cloudErrorMessage(e))}}
+function setupAuth(){if(!auth){$("accountStatus").textContent="Firebase未接続";cloudMessage("Firebase SDKの読み込みに失敗しました。ネットワークを確認してください。");return}auth.onAuthStateChanged(user=>{const uid=user?.uid||null;if(uid!==lastAuthUid){clearTimeout(cloudSaveTimer);cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;lastAuthUid=uid}currentUser=user;$("accountStatus").textContent=user?"ログイン中："+(user.email||user.displayName||"Googleアカウント"):"未接続";$("googleLogin").hidden=!!user;$("emailLogin").hidden=!!user;$("emailSignup").hidden=!!user;$("logoutBtn").hidden=!user;$("cloudControls").hidden=!user;if(user){cloudMessage("ログインしました。ローカルデータはそのままです。クラウド保存・読み込みは下の操作から選べます。")}else cloudMessage("ローカル保存は有効です。ログイン後もクラウドとの読み書きは選択するまで行いません。")})}
 function total(){return project.cuts.reduce((a,c)=>a+(Number(c.duration)||0),0)}
 function cameraName(id){let p=allPresets().find(x=>x.id===id);return p?p.name:"未設定"}
 function renderCameraList(){let chosen=project.cuts.find(c=>c.id===selectedId);$("cameraList").innerHTML=allPresets().map(p=>`<button class="camera-option ${chosen&&chosen.camera===p.id?"active":""}" data-camera="${esc(p.id)}"><span class="num">${esc(p.id)}</span><span><b>${esc(p.name)}</b><small>${esc(p.description||p.english||"カスタム演出")}</small></span></button>`).join("");}
@@ -181,18 +205,18 @@ function render(){
  $("cutCount").textContent=project.cuts.length;$("totalTime").textContent=total()+"秒";
  $("empty").hidden=project.cuts.length>0;
  $("cuts").innerHTML=project.cuts.map((c,i)=>{let cam=allPresets().find(p=>p.id===c.camera);let preview=c.drawing||c.image;
- return `<article class="cut" data-id="${c.id}">
+ return `<article class="cut" data-id="${esc(c.id)}">
  <div class="cuthead"><span class="cutnum">CUT ${esc(c.cutNumber??String(i+1))}</span><span class="muted">${Number(c.duration)||0}秒</span></div>
  <div class="cutbody">
- <div class="sketch" data-preview="${c.id}">${preview?`<img src="${preview}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
- <div class="cutactions"><button class="btn small" data-action="draw" data-id="${c.id}">✎ 描く</button><button class="btn small" data-action="cg" data-id="${c.id}">♟ 3D人物</button><button class="btn small" data-action="image" data-id="${c.id}">▧ 画像</button><button class="btn small" data-action="up" data-id="${c.id}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${c.id}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${c.id}">複製</button><button class="btn small" data-action="delete" data-id="${c.id}">削除</button></div>
- <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${c.id}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
+ <div class="sketch" data-preview="${esc(c.id)}">${preview?`<img src="${esc(preview)}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
+ <div class="cutactions"><button class="btn small" data-action="draw" data-id="${esc(c.id)}">✎ 描く</button><button class="btn small" data-action="cg" data-id="${esc(c.id)}">♟ 3D人物</button><button class="btn small" data-action="image" data-id="${esc(c.id)}">▧ 画像</button><button class="btn small" data-action="up" data-id="${esc(c.id)}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${esc(c.id)}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${esc(c.id)}">複製</button><button class="btn small" data-action="delete" data-id="${esc(c.id)}">削除</button></div>
+ <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${esc(c.id)}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
  ${cam?`<p class="muted" style="margin:-3px 0 8px">${esc(cam.description||cam.english||"")}</p>`:""}
- <div class="field"><label>カット番号（重複可）</label><input data-field="cutNumber" data-id="${c.id}" value="${esc(c.cutNumber??String(i+1))}" placeholder="例：12A、3-2"></div>
- <div class="field"><label>シーン番号（重複可）</label><input data-field="sceneNumber" data-id="${c.id}" value="${esc(c.sceneNumber??"")}" placeholder="例：SCENE 2"></div>
- <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${c.id}" value="${esc(c.scene)}" placeholder="例：駅前・人物の表情"></div>
- <div class="field"><label>秒数</label><input type="number" min="0.1" max="999" step="0.5" data-field="duration" data-id="${c.id}" value="${esc(c.duration)}"></div>
- <div class="field"><label>演出・カメラ指示</label><textarea data-field="description" data-id="${c.id}" placeholder="例：歌い出しに合わせてゆっくり寄る">${esc(c.description)}</textarea></div>
+ <div class="field"><label>カット番号（重複可）</label><input data-field="cutNumber" data-id="${esc(c.id)}" value="${esc(c.cutNumber??String(i+1))}" placeholder="例：12A、3-2"></div>
+ <div class="field"><label>シーン番号（重複可）</label><input data-field="sceneNumber" data-id="${esc(c.id)}" value="${esc(c.sceneNumber??"")}" placeholder="例：SCENE 2"></div>
+ <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${esc(c.id)}" value="${esc(c.scene)}" placeholder="例：駅前・人物の表情"></div>
+ <div class="field"><label>秒数</label><input type="number" min="0.1" max="999" step="0.5" data-field="duration" data-id="${esc(c.id)}" value="${esc(c.duration)}"></div>
+ <div class="field"><label>演出・カメラ指示</label><textarea data-field="description" data-id="${esc(c.id)}" placeholder="例：歌い出しに合わせてゆっくり寄る">${esc(c.description)}</textarea></div>
  </div></article>`}).join("");
  renderCameraList();
 }
@@ -200,7 +224,7 @@ function addCut(){let c=freshCut();project.cuts.push(c);selectedId=c.id;render()
 function getCut(id){return project.cuts.find(c=>c.id===id)}
 function move(id,delta){let i=project.cuts.findIndex(c=>c.id===id),j=i+delta;if(j<0||j>=project.cuts.length)return;[project.cuts[i],project.cuts[j]]=[project.cuts[j],project.cuts[i]];render();persist()}
 function exportProject(){const blob=new Blob([JSON.stringify(project,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(project.name||"cutboard").replace(/[\\/:*?"<>|]/g,"_")+".json";a.click();URL.revokeObjectURL(a.href)}
-function importProject(file){if(!file)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.cuts))throw Error();project=normalizeProject({name:d.name||"読み込んだ絵コンテ",date:d.date||new Date().toISOString().slice(0,10),memo:d.memo||"",cuts:d.cuts,customCameras:d.customCameras||[]});selectedId=project.cuts[0]?.id||null;render();persist();alert("読み込みました")}catch(e){alert("このJSONファイルは読み込めませんでした")}};r.readAsText(file)}
+function importProject(file){if(!file)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.cuts))throw Error();cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;project=normalizeProject({name:d.name||"読み込んだ絵コンテ",date:d.date||new Date().toISOString().slice(0,10),memo:d.memo||"",cuts:d.cuts,customCameras:d.customCameras||[]});selectedId=project.cuts[0]?.id||null;render();persist(true);cloudMessage("JSONを読み込みました。クラウドへは自動で上書きされません。");alert("読み込みました")}catch(e){alert("このJSONファイルは読み込めませんでした")}};r.readAsText(file)}
 function openDraw(id){drawTarget=id;const c=getCut(id),canvas=$("drawCanvas"),ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);let src=c?.drawing||c?.image;if(src){let img=new Image();img.onload=()=>ctx.drawImage(img,0,0,canvas.width,canvas.height);img.src=src}$("drawDialog").showModal()}
 function point(e){let r=$("drawCanvas").getBoundingClientRect();return {x:(e.clientX-r.left)*$("drawCanvas").width/r.width,y:(e.clientY-r.top)*$("drawCanvas").height/r.height}}
 const dc=$("drawCanvas");dc.addEventListener("pointerdown",e=>{drawing=true;lastPoint=point(e);dc.setPointerCapture(e.pointerId)});dc.addEventListener("pointermove",e=>{if(!drawing)return;let p=point(e),ctx=dc.getContext("2d");ctx.strokeStyle="#111827";ctx.lineWidth=5;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(lastPoint.x,lastPoint.y);ctx.lineTo(p.x,p.y);ctx.stroke();lastPoint=p});["pointerup","pointercancel","pointerleave"].forEach(ev=>dc.addEventListener(ev,()=>{drawing=false;lastPoint=null}));
@@ -265,12 +289,20 @@ $("projectDate").addEventListener("change",e=>{project.date=e.target.value;persi
 $("sortBtn").addEventListener("click",()=>{render();window.scrollTo({top:0,behavior:"smooth"})});
 $("accountBtn").addEventListener("click",()=>{$("accountSection").scrollIntoView({behavior:"smooth",block:"center"});$("displayName").focus({preventScroll:true})});
 try{$("displayName").value=localStorage.getItem("cutboard-display-name")||""}catch(e){}
-$("saveAccountSettings").addEventListener("click",()=>{try{localStorage.setItem("cutboard-display-name",$("displayName").value.trim());alert("表示名をこの端末に保存しました。ログイン・クラウド同期はFirebase設定後に利用できます。")}catch(e){alert("保存できませんでした")}});
+setupAuth();
+$("googleLogin").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません。ネットワークを確認してください。");await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("emailLogin").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません");await auth.signInWithEmailAndPassword($("authEmail").value.trim(),$("authPassword").value)}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("emailSignup").addEventListener("click",async()=>{try{if(!auth)throw new Error("Firebase SDKを読み込めません");await auth.createUserWithEmailAndPassword($("authEmail").value.trim(),$("authPassword").value)}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
+$("logoutBtn").addEventListener("click",async()=>{try{clearTimeout(cloudSaveTimer);currentUser=null;cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;await auth.signOut()}catch(e){cloudMessage(cloudErrorMessage(e))}});
+$("refreshCloud").addEventListener("click",refreshCloudProjects);
+$("saveCloudAs").addEventListener("click",saveLocalAsCloud);
+$("loadCloud").addEventListener("click",loadSelectedCloud);
+$("saveAccountSettings").addEventListener("click",async()=>{const name=$("displayName").value.trim();try{localStorage.setItem("cutboard-display-name",name);if(currentUser&&name)await currentUser.updateProfile({displayName:name});cloudMessage("表示名を保存しました。")}catch(e){cloudMessage(e.message?.startsWith("Firebase")?e.message:cloudErrorMessage(e))}});
 ["exportBtn","exportBtn2"].forEach(id=>$(id).addEventListener("click",exportProject));
 ["importBtn","importBtn2"].forEach(id=>$(id).addEventListener("click",()=>$("jsonInput").click()));
 $("jsonInput").addEventListener("change",e=>{importProject(e.target.files[0]);e.target.value=""});
 $("imageInput").addEventListener("change",e=>{imageToCut(e.target.files[0],e.target.dataset.id);e.target.value=""});
-$("newProject").addEventListener("click",()=>{if(confirm("現在のプロジェクトを新規作成しますか？ 先にJSONを書き出すことをおすすめします。")){project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};selectedId=null;render();persist()}});
+$("newProject").addEventListener("click",()=>{if(confirm("現在のプロジェクトを新規作成しますか？ 先にJSONを書き出すことをおすすめします。")){cloudProjectId=null;cloudBaseVersion=null;cloudConflict=false;project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};selectedId=null;render();persist(true);cloudMessage("新しいローカルプロジェクトです。クラウドへ保存する場合は新規保存を選んでください。")}});
 $("printBtn").addEventListener("click",()=>window.print());
 $("closeDraw").addEventListener("click",()=>$("drawDialog").close());$("cancelDraw").addEventListener("click",()=>$("drawDialog").close());
 $("clearDraw").addEventListener("click",()=>{let ctx=dc.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,dc.width,dc.height)});

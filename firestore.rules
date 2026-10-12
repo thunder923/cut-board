@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/projects/{projectId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function hasProjectShape() {
+        return request.resource.data.keys().hasAll(['name', 'project', 'version', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'project', 'version', 'updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.project is map
+          && request.resource.data.version is int
+          && request.resource.data.updatedAt is timestamp;
+      }
+
+      allow read, delete: if isOwner();
+      allow create: if isOwner() && hasProjectShape() && request.resource.data.version == 1;
+      allow update: if isOwner()
+        && hasProjectShape()
+        && request.resource.data.version == resource.data.version + 1;
+    }
+  }
+}

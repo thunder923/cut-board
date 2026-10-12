@@ -8,6 +8,7 @@
 - `index.html` — アプリ本体
 - `custom-cameras.js` — GitHubで共有する共通カスタム演出一覧
 - `manifest.webmanifest` — PWA用の基本情報
+- `firestore.rules` — ログインユーザーごとに保存先を分けるFirestoreルール
 - `.nojekyll` — GitHub Pagesで静的ファイルを公開するための設定
 - `README.md` — この説明
 
@@ -50,8 +51,12 @@ window.CUTBOARD_CUSTOM_CAMERAS = [
 
 GitHub公式ガイド: https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site
 
-## 保存・同期について（重要）
-現時点では、プロジェクトと個人用カメラワークリストはブラウザの `localStorage` に保存されます。GitHub Pagesは静的ホスティングなので、置くだけではアカウント認証やスマホ・PC間の自動同期はできません。同期にはFirebase Authentication / Cloud Firestore / Cloud Storage等のバックエンドを別途実装する必要があります。画像を含むプロジェクトはJSONに画像データも入るため、大きなデータではファイルサイズに注意してください。
+## 保存・ログイン・同期
+プロジェクトは引き続きブラウザの `localStorage` に保存されます。ログイン後もクラウドへの読み込みや移行は自動実行されません。アカウント設定から「このローカルプロジェクトをクラウドに新規保存」を選ぶとユーザー専用の保存先を作り、以降の編集を同期します。既存プロジェクトの読み込みは、選択後に確認してから行います。複数端末で同時に変更された場合、古い版からの自動上書きを止めて画面に知らせます。
+
+Firebase AuthenticationでGoogleとメールアドレス／パスワードを有効にし、Authenticationの承認済みドメインに `thunder923.github.io` を追加してください。Firestoreの「ルール」に [`firestore.rules`](firestore.rules) の内容を貼り付けて公開します。ルールを公開しないとクラウドの読み書きは拒否されます。このアプリはFirebase Web SDKをCDNから読み込み、Firestoreにユーザー別のプロジェクト文書を保存します。Firebase Storageは使用しません。
+
+Firestoreの1文書上限を超えないよう、アプリはプロジェクトJSONが約850 KiBを超える場合、クラウド保存を止めて説明を表示します。画像や描画を含むプロジェクトはこの上限に達しやすいため、JSONバックアップも継続して利用してください。Sparkプランの範囲内での利用を想定し、有料プランへの切り替えは行いません。実際の利用量はFirebase Consoleで確認してください。
 
 ## 現在の主な機能
 - 標準24種類のカメラワーク
