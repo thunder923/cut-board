@@ -5,5 +5,5 @@
   "display": "standalone",
   "background_color": "#f4f5f7",
   "theme_color": "#111827",
-  "description": "カメラワーク24種類とカスタム演出で作る絵コンテアプリ"
+  "description": "カメラワーク48種類（Motion Prompt準拠）とカスタム演出で作る絵コンテアプリ"
 }

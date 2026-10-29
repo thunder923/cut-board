@@ -29,6 +29,11 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
 @media(max-width:850px){.wrap{grid-template-columns:1fr;padding:12px}.side{position:static;order:2}.mainpanel{padding:12px}.top{padding:12px}.top-actions .desktop{display:none}.cuts{grid-template-columns:1fr}.camera-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:unset}.camera-option{grid-template-columns:28px 1fr}.stats{margin:12px 0}.top .btn{padding:8px 9px}}
 @media(min-width:851px){.mobile-add{display:none}}
 @media print{.top,.side,.toolbar,.cutactions,.btn{display:none!important}.wrap{display:block;padding:0}.mainpanel{border:0;padding:0}.cuts{grid-template-columns:repeat(2,1fr)}.cut{break-inside:avoid}.cut .field input,.cut .field textarea,.cut .field select{border:0;padding:2px}.cuthead{background:#eee!important}}
+.cam-tools{display:grid;gap:8px;margin:10px 0}.cam-tools input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px;background:#fff}
+.cam-chips{display:flex;gap:6px;flex-wrap:wrap}.cam-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:800;color:#4b5563}.cam-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.camera-count{font-size:11px;color:var(--muted)}.mp-badge{display:inline-block;background:#eef2ff;color:#3556c9;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:900;margin-left:6px}
+.cam-cat{font-size:10px;color:#8a94a6;font-weight:800}.cam-detail{border:1px solid #c9ddff;background:#f4f8ff;border-radius:10px;padding:10px;font-size:12px;line-height:1.6;margin-top:10px}.cam-detail h4{margin:0 0 4px;font-size:13px}.cam-detail .toolbar{margin:8px 0 0}
+.cut-cam-detail{margin:-3px 0 8px;font-size:12px;color:var(--muted);line-height:1.55}.cut-cam-detail a{color:var(--blue);font-weight:700}
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}
@@ -36,7 +41,7 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
 </head>
 <body>
 <header class="top">
-  <div class="brand">▧ CUT BOARD <small>カメラワーク24種でつくる絵コンテ</small></div>
+  <div class="brand">▧ CUT BOARD <small>カメラワーク48種でつくる絵コンテ</small></div>
   <div class="top-actions">
     <button class="btn ghost desktop" id="newProject">新規プロジェクト</button>
     <button class="btn ghost desktop" id="importBtn">JSON読込</button>
@@ -56,13 +61,19 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
       <div class="stats">
         <div class="stat"><strong id="cutCount">0</strong><span>カット数</span></div>
         <div class="stat"><strong id="totalTime">0秒</strong><span>合計尺</span></div>
-        <div class="stat"><strong>24</strong><span>演出プリセット</span></div>
+        <div class="stat"><strong id="presetCount">48</strong><span>演出プリセット</span></div>
       </div>
     </div>
     <div class="section">
-      <h2>カメラワーク24</h2>
-      <p class="muted">選択中のカットに追加します。</p>
+      <h2>カメラワーク48</h2>
+      <p class="muted">選択中のカットに追加します。名称・説明・使いどころは <a href="https://showheyohtaki.github.io/motion-prompt/" target="_blank" rel="noopener">Motion Prompt</a> の camera（#025-048）＋camera2（#169-192）全48種に準拠しています。</p>
+      <div class="cam-tools">
+        <input id="cameraSearch" type="search" placeholder="検索：寄る／追う／俯瞰／zoom など" aria-label="カメラワークを検索">
+        <div class="cam-chips" id="cameraChips"><button type="button" class="cam-chip active" data-cat="all">すべて</button><button type="button" class="cam-chip" data-cat="move">カメラの動き</button><button type="button" class="cam-chip" data-cat="style">撮り方・時間</button><button type="button" class="cam-chip" data-cat="angle">アングル・画づくり</button><button type="button" class="cam-chip" data-cat="transition">切り替え・編集</button><button type="button" class="cam-chip" data-cat="custom">カスタム</button></div>
+        <div class="camera-count" id="cameraCount"></div>
+      </div>
       <div class="camera-list" id="cameraList"></div>
+      <div class="cam-detail" id="cameraDetail" hidden></div>
       <div class="section" style="padding-bottom:0;margin-top:12px">
         <h3>カスタム演出を追加</h3>
         <div class="field"><label for="customName">名前（必須）</label><input id="customName" placeholder="例：スライダーで横移動"></div>
@@ -201,6 +212,7 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
     <h3>カットと絵コンテ</h3><p>カットを追加し、シーン／カット番号、尺、演出メモ、カメラワークを入力します。番号は重複可です。描画、参考画像、PDFページ、3Dプレビューを各カットに持たせられます。PNGはカット単位、PDFは印刷画面から出力します。</p>
     <h3>保存と受け渡し</h3><p>編集内容はこのブラウザのlocalStorageに自動保存されます。JSONバックアップは「書き出し」、別端末への復元は「JSON読込」または「JSONから復元」を使います。JSONにはカット情報、描画、画像、3Dシーンが含まれます。別プロジェクトを読み込む前に、必要な作業データをJSONで退避してください。</p>
     <h3>Google Drive同期</h3><p>アカウントでログイン後、「Google Driveを接続」でDriveに使うGoogleアカウントを選びます。CUT BOARDのログイン用アカウントと別のGoogleアカウントも選択できます。最初は「このローカルプロジェクトをDriveに新規保存」で明示的に移行し、別端末では一覧から選んで読み込みます。読み込みは現在の表示を置き換えるため確認が入ります。編集後は選択中のDriveプロジェクトへ自動同期します。同時編集を検知した場合は同期を止め、一覧更新後に採用する版を読み直してください。</p>
+    <h3>カメラワーク48（Motion Prompt準拠）</h3><p>標準プリセットは Motion Prompt の camera（#025-048）と camera2（#169-192）の全48種です。左の一覧はカテゴリで絞り込み、名前・英語名・説明・タグで検索できます。各カットで選ぶと説明と「使いどころ」が表示され、番号（#025など）から動く見本を開けます。「AI用プロンプトをコピー」は、Veoなどの動画生成AIや制作メモに貼れる指示文をコピーします。既存プロジェクトで使っている番号01-24は従来どおりです。</p>
     <h3>3Dシーン</h3><p>「3Dシーン」で人物（成人／子供、男女、役名）や小道具を配置します。ドラッグでオブジェクトを選択・移動し、移動／回転／スケールのギズモ、または数値入力で調整します。撮影カメラは三脚／手持ち、高さ・位置・注視点、35mm換算焦点距離を設定できます。編集視点と撮影カメラの画角を切り替え、カットへ保存します。外部GLBはライセンスを確認して読み込んでください。</p>
     <p class="note">Google Driveの保存領域は各利用者のアカウントに属します。アプリ専用領域はDriveの通常のファイル一覧には表示されないため、長期保管・受け渡しにはJSONバックアップも併用してください。以前のFirestore保存は「アカウント設定」から読み取り移行できます。元データは削除されません。</p>
   </div>
@@ -208,14 +220,67 @@ dialog{border:0;border-radius:16px;padding:0;width:min(650px,calc(100% - 24px));
 </dialog>
 <input id="jsonInput" type="file" accept="application/json,.json" hidden>
 <input id="imageInput" type="file" accept="image/*" hidden>
+<script src="custom-cameras.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
+// カメラワーク48種：名称・説明・使いどころ・タグは Motion Prompt（showheyohtaki/motion-prompt、MIT License (c) 2026 Shohei Ohtaki）の
+// camera #025-048 / camera2 #169-192 に準拠。列は [番��, 名前, 英語名, 説明, カテゴリ, Motion Prompt番号, 使いどころ, タグ]。
+// 既存プロジェクト互換のため、01-24 の割当は従来版から変更していない（25-48 が camera2 の追加分）。
 const presets=[
-["01","パン","Pan","カメラを横に振る"],["02","ティルト","Tilt","カメラを縦に振る"],["03","ドリーイン","Dolly in","カメラごと被写体に近づく"],["04","ズームイン","Zoom in","レンズで寄る（位置は動かない）"],["05","トラッキング","Tracking shot","被写体と並んで動く"],["06","オービット","Orbit (Arc shot)","被写体の周りを回り込む"],["07","クレーンアップ","Crane up","カメラが上へ昇っていく"],["08","ドリーズーム","Dolly zoom (Vertigo)","人物はそのまま背景だけ伸び縮み"],["09","ラックフォーカス","Rack focus","ピントを手前から奥へ送る"],["10","手持ち風","Handheld","わざと小さく揺らす"],["11","FPV","FPV drone shot","ドローンで突き進む疾走感"],["12","ダッチアングル","Dutch angle","画面を斜めに傾ける"],["13","スローモーション","Slow motion","動きをゆっくり見せる"],["14","スピードランプ","Speed ramp","速い→遅いと速さを変える"],["15","タイムラプス","Time-lapse","長い時間を早送りで見せる"],["16","フリーズフレーム","Freeze frame","動きを一瞬止める"],["17","ジャンプカット","Jump cut","同じ画角のまま時間を飛ばす"],["18","マッチカット","Match cut","形や動きをそろえて場面を変える"],["19","ホイップパン","Whip pan","素早く振ってブレで次へ"],["20","クロスディゾルブ","Cross dissolve","前後の映像を重ねて溶かす"],["21","ワイプ","Wipe","境目が横切って画面が入れ替わる"],["22","スマッシュカット","Smash cut","静かな場面から急に切り替える"],["23","Jカット","J-cut","次の場面の音が先に聞こえる"],["24","Lカット","L-cut","前の場面の音が後まで残る"]
+["01","パン","Pan","カメラの位置は変えず、首を左から右へ振る。回転なので手前も奥も同じ量だけ横に流れる。","move","025","横に広い場所を見せるとき、または視線を左右の別の対象へ移すとき。","pan,panning,yaw,rotate,horizontal,camera move,reveal"],
+["02","ティルト","Tilt","カメラの位置は変えず、首を下から上へ振る。足元の人物から塔の先端まで見上げていく。","move","026","建物や人物の高さ・大きさを見せるとき。","tilt,tilt up,pitch,vertical,look up,camera move"],
+["03","ドリーイン","Dolly in","カメラそのものが被写体へ前進する。手前の物ほど大きく速く流れ、奥の山はほとんど変わらない。","move","027","人物の感情や一点へ、空間の奥行きを感じさせながら寄るとき。","dolly,dolly in,push in,track in,move forward,parallax,camera move"],
+["04","ズームイン","Zoom in","カメラの位置は動かさず、レンズの焦点距離だけを伸ばす。画面全体が同じ比率で拡大する。","move","028","その場から動かずに一点へ注目を集めるとき。ドリーインより平面的で観察する印象になる。","zoom,zoom in,focal length,lens,magnify,telephoto,camera move"],
+["05","トラッキング","Tracking shot","歩く人物と同じ速さでカメラが真横に並走する。人物は画面中央のまま、手前の杭ほど速く後ろへ流れる。","move","029","歩く・走る人物に付いていき、移動している感じを保ったまま表情や動作を見せるとき。","tracking,tracking shot,follow,truck,lateral,sideways,parallax,walk"],
+["06","オービット","Orbit (Arc shot)","被写体を中心に、カメラが円を描いて回り込む。人物は中央のまま、背景の木と建物が横に大きく流れる。","move","030","人物や商品を立体的に見せたいとき、登場や決めの場面を強調するとき。","orbit,arc shot,circle,360,rotate around,revolve,camera move"],
+["07","クレーンアップ","Crane up","カメラが真上へ上昇しながら下を向き、人物を見下ろす構図になる。","move","031","場面の終わりに人物から離れて全体を見せるとき、場所の広さを明かすとき。","crane,crane up,jib,boom up,rise,high angle,camera move"],
+["08","ドリーズーム","Dolly zoom (Vertigo)","カメラを引きながら同じ比率でズームする。人物の大きさは変わらず、背景だけが迫ってくる。","move","032","人物が何かに気づいた瞬間や、不安・動揺を映像で表すとき。","dolly zoom,vertigo,zolly,push pull,background stretch,unease,camera move"],
+["09","ラックフォーカス","Rack focus","カメラは動かさず、ピントを手前の花から奥の人物へ送る。ぼけている側が入れ替わる。","style","033","カットを割らずに、見てほしい対象を手前から奥（または逆）へ移すとき。","rack focus,focus pull,pull focus,depth of field,blur,bokeh,foreground"],
+["10","手持ち風","Handheld","三脚を使わず手で持ったような、小さく不規則な揺れを画面全体に加える。","style","034","ドキュメンタリーのような臨場感や、その場にいる感じを出すとき。","handheld,camera shake,shaky,documentary,wobble,noise,realism"],
+["11","FPV","FPV drone shot","並木の間を低空・高速で前進しながら、機体を左右に傾けて蛇行する一人称視点。","style","035","スピード感と没入感を出すとき。場所の中を一気に通り抜けて見せるとき。","fpv,drone,fly through,first person,banking,speed,aerial"],
+["12","ダッチアングル","Dutch angle","水平だったカメラを光軸まわりに傾け、地平線を斜めにしたまま止める。","style","036","不安・緊張・違和感を画面で表すとき。","dutch angle,dutch tilt,canted angle,oblique,roll,tension,tilted horizon"],
+["13","スローモーション","Slow motion","固定カメラの前で人物がゆっくり跳び上がり、葉もゆっくり落ちる。動き全体を引き伸ばして見せる。","style","037","一瞬の動きや表情をじっくり見せたいとき、感情の山場を強調するとき。","slow motion,slow-mo,slomo,high frame rate,120fps,time stretch,jump"],
+["14","スピードランプ","Speed ramp","1つのショットの途中で再生速度を速い状態から遅い状態へ滑らかに変える。左下のグラフが速度を示す。","style","038","動きの見せ場だけをスローにして、前後はテンポよく進めたいとき。","speed ramp,time remap,ramping,fast to slow,variable speed,velocity"],
+["15","タイムラプス","Time-lapse","固定カメラのまま、朝6時から夕方18時までを数秒に縮める。太陽・雲・人・影が早送りで動く。","style","039","長い時間の経過や、街・空・作業の変化を短く見せるとき。","time-lapse,timelapse,fast forward,time compression,sun,clouds,day to night"],
+["16","フリーズフレーム","Freeze frame","跳び上がった人物が頂点に来た瞬間に映像を止め、1.4秒後に続きから再開する。","style","040","決定的な瞬間を強調するとき、止めた画に名前や説明のテロップを載せるとき。","freeze frame,still frame,pause,hold,stop motion,highlight"],
+["17","ジャンプカット","Jump cut","カメラの位置も画角も同じまま、人物の位置と時刻だけが飛ぶ。同じ場面の中で時間を省く切り方。","transition","041","話や作業の間を詰めてテンポを上げるとき、時間の経過を短く示すとき。","jump cut,cut,time skip,same framing,vlog,ellipsis,edit"],
+["18","マッチカット","Match cut","投げ上げたボールが、次のカットでは同じ位置・同じ大きさの太陽になる。形をそろえて別の場面へつなぐ。","transition","042","時間や場所が大きく離れた2つの場面を、形や動きの共通点で意味を持たせてつなぐとき。","match cut,graphic match,shape match,cut,transition,edit"],
+["19","ホイップパン","Whip pan","カメラを素早く横に振り、流れてぼけた映像の中で次の場面に入れ替える。","transition","043","勢いを保ったまま場所や話題を切り替えるとき。","whip pan,swish pan,motion blur,fast pan,transition,energy"],
+["20","クロスディゾルブ","Cross dissolve","前の絵に次の絵を重ね、不透明度を上げていって入れ替える。途中は2つの絵が透けて重なる。","transition","044","時間の経過や場所の移動を穏やかに伝えるとき、回想へ入るとき。","cross dissolve,dissolve,crossfade,fade,opacity,blend,transition"],
+["21","ワイプ","Wipe","縦の境界線が左から右へ動き、通過した側から次の絵に置き換わる。","transition","045","場面や話題の区切りをはっきり見せたいとき、比較の前後を切り替えるとき。","wipe,linear wipe,reveal,clip,edge,left to right,transition"],
+["22","スマッシュカット","Smash cut","人物が寝ている静かな場面から、前触れなく激しい場面へ直結で切り替える。音量メーターも一気に上がる。","transition","046","笑いや驚きを作るとき。静と動、予想と現実の落差を一瞬で見せるとき。","smash cut,hard cut,abrupt,contrast,quiet to loud,comedy,transition"],
+["23","Jカット","J-cut","映像が切り替わる前に、次の場面の音が先に入る。上に映像、下に映像と音のタイムラインを表示する。","transition","047","次の場面への期待を先に作りたいとき、会話や場面転換を自然につなぐとき。","j-cut,j cut,split edit,audio lead,sound first,audio transition,edit"],
+["24","Lカット","L-cut","映像が次の場面に切り替わったあとも、前の場面の音がしばらく残る。上に映像、下に映像と音のタイムラインを表示する。","transition","048","話している人の声を残したまま、聞き手の反応や関連する映像を見せるとき。","l-cut,l cut,split edit,audio lag,sound carries over,audio transition,edit"],
+["25","ペデスタル","Pedestal","カメラが向きを変えずに真上へ平行移動する。地平線は画面の中央のまま、人物と建物が下へ流れる。","move","169","棚や建物を下から上へなめらかに見せるとき、ティルトせずに目線の高さを変えるとき。","pedestal,boom,vertical move,rise,elevate,camera move,no tilt"],
+["26","バレルロール","Barrel roll","カメラがレンズの軸でぐるりと1回転し、地平線が一周して元に戻る。","move","170","飛行機やドローンの映像で勢いを出すとき、めまいや混乱を表すとき。","barrel roll,roll,360,rotate,spin,aerial,camera move"],
+["27","ハイパーラプス","Hyperlapse","街路を前へ進みながら、太陽・雲・人影が早送りで動く。タイムラプスとカメラの移動を同時に行う。","move","171","街や建物の中を、長い距離と長い時間ぶん一気に見せるとき。","hyperlapse,time-lapse,moving timelapse,fast forward,travel,city,camera move"],
+["28","長回し","Long take","歩く人物をカットなしで追い続ける1ショット。画面下の帯は切れ目のない1本のまま。","move","172","緊張感や臨場感を切らさずに見せたいとき、動きの流れを1本で見せるとき。","long take,oner,one shot,continuous,no cut,sequence shot,camera move"],
+["29","ステディカム","Steadicam","細かい揺れのない、ゆっくり大きなうねりだけで前へ進み、歩く人物を追う。手持ちとの違いが分かる。","move","173","歩きながらの移動を、映画のようになめらかに見せたいとき。","steadicam,gimbal,stabilizer,smooth,glide,floating,camera move"],
+["30","フォローショット","Follow shot","蛇行して歩く人物の後ろを、同じ道筋で少し遅れてついていく。人物は中央付近に留まり、背中が見える。","move","174","人物と一緒に場所へ入っていく感じを出すとき、ゲームのような三人称視点。","follow shot,follow,behind,third person,trail,walk,camera move"],
+["31","ロックオフ","Locked-off shot","三脚で固定したカメラの前を人物が横切り、奥を車が通る。カメラは1pxも動かない。","move","175","動きの対比で被写体を目立たせるとき、定点観測、タイムラプスや合成の土台にするとき。","locked-off,locked off,static shot,fixed camera,tripod,static,still camera"],
+["32","フライスルー","Fly-through","窓のあいた壁へ向かって進み、窓を通り抜けて向こう側の場所へ出る。","move","176","建物の中へ入る導入、場所から場所への移動を1つの動きで見せるとき。","fly-through,flythrough,through the window,pass through,drone,interior,camera move"],
+["33","ローアングル","Low angle","カメラを地面近くまで下げて見上げる。人物が大きく、建物が高くそびえて見える。","angle","177","人物を強く・大きく見せたいとき、建物の高さを強調するとき。","low angle,worm's eye,look up,from below,power,heroic,angle"],
+["34","ハイアングル","High angle","カメラを高い位置へ上げて見下ろす。人物が小さく、地面が画面の大半を占める。","angle","178","人物を弱く・小さく見せたいとき、状況を俯瞰で説明するとき。","high angle,look down,from above,overhead,vulnerable,angle"],
+["35","POVショット","POV shot","登場人物の目で見た画。歩く揺れと画面下の両手で一人称だと分かり、前の人物がこちらに手を振る。","angle","179","観客に登場人物と同じ体験をさせたいとき、ゲームやVR風の見せ方。","pov,point of view,first person,subjective,eyes,hands,angle"],
+["36","オーバーザショルダー","Over-the-shoulder","手前の人物の後頭部と肩を画面の端に入れ、その肩越しに相手を撮る。手前はぼけ、相手にピント。","angle","180","会話の場面で2人の位置関係を見せるとき、相手の表情に集中させるとき。","over-the-shoulder,ots,dialogue,conversation,shoulder,two shot,angle"],
+["37","バーズアイ","Bird's-eye view","真上から真下を見下ろす。道・人・車・木がすべて上から見た形になり、上がるほど広い範囲が見える。","angle","181","配置や動線を図のように見せたいとき、神の視点で俯瞰するとき。","bird's-eye,birds eye,top-down,overhead,straight down,aerial,angle"],
+["38","ディープフォーカス","Deep focus","手前の花から奥の人物・建物まで、同時に全部にピントが合っていく。","angle","182","画面のどこを見てもよい場面、奥行きの中で複数の出来事を同時に見せるとき。","deep focus,depth of field,everything sharp,f/16,small aperture,pan focus,focus"],
+["39","エスタブリッシングショット","Establishing shot","広角・高い位置から街全体を見せる引きの画。ゆっくり寄りながら、場所の表示が左下に出る。","angle","183","場面の冒頭でどこにいるかを伝えるとき、場所や時間が変わったとき。","establishing shot,wide shot,location,opening,scene setting,aerial,framing"],
+["40","エクストリームクローズアップ","Extreme close-up","顔のクローズアップから、目だけが画面を埋めるまで寄る。","angle","184","感情の一番の山場、小さな細部に注目させたいとき。","extreme close-up,ecu,close-up,eye,detail,macro,framing"],
+["41","インサートショット","Insert shot","人物の場面に、同じ場面の手元の時計の大写しを1.3秒だけ差し込み、元の画へ戻る。","transition","185","小さな物や手元の動作を見せるとき、重要な小道具を強調するとき。","insert shot,insert,detail,close-up,cut in,prop,edit"],
+["42","モーフカット","Morph cut","同じ人物の2つのテイクを、位置と姿勢をなめらかに補間してつなぐ。ジャンプカットのように飛ばない。","transition","186","インタビューや語りの間を詰めるとき、言い間違いを目立たずに消すとき。","morph cut,morph,seamless,interview,talking head,edit,transition"],
+["43","フェードアウト","Fade to black","画面全体が黒へ沈んで終わり、黒から次の場面が明けてくる。","transition","187","章の区切り、時間の大きな経過、物語の終わり。","fade to black,fade out,fade in,black,ending,transition"],
+["44","アイリスアウト","Iris out","人物を中心に丸い窓が閉じて黒になり、次の場面は丸い窓が開いて現れる。","transition","188","無声映画やアニメ風の終わり方、コミカルな区切り。","iris out,iris in,iris wipe,circle,old film,cartoon,transition"],
+["45","カットアウェイ","Cutaway","話す人物の場面から、聞いている客席へ切り替えて戻る。差し込むのは別の対象。","transition","189","反応を見せるとき、時間の省略や言い間違いのカットをごまかすとき。","cutaway,reaction shot,b-roll,cut away,audience,edit"],
+["46","クロスカッティング","Cross-cutting","同時に進む2つの場面（走る人物と走る車）を、だんだん短く交互に見せる。","transition","190","追跡や救出など、同時進行の緊張を高めるとき。","cross-cutting,parallel editing,intercut,parallel action,chase,edit"],
+["47","バレットタイム","Bullet time","跳躍の頂点で時間がほぼ止まり、その間にカメラが人物の周りを回り込む。","transition","191","決めの瞬間を立体的に見せるとき、アクションの見せ場。","bullet time,time slice,frozen moment,orbit,slow motion,matrix,effect"],
+["48","モンタージュ","Montage","7つの短いカットで30日分の練習を見せる。つなぎは直結で、右上の日付が飛ぶ。","transition","192","長い期間の変化や努力を短く見せるとき。","montage,sequence,training montage,time passing,quick cuts,edit"]
 ];
+const CAMERA_CATEGORIES={move:"カメラの動き",style:"撮り方・時間",angle:"アングル・画づくり",transition:"切り替え・編集",custom:"カスタム"};
+let cameraQuery="",cameraCat="all";
 const $=id=>document.getElementById(id);
 let selectedId=null, drawTarget=null, drawing=false, lastPoint=null;
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -224,6 +289,10 @@ const codeCameras=(Array.isArray(window.CUTBOARD_CUSTOM_CAMERAS)?window.CUTBOARD
   name:String(p.name||"カスタム演出"),
   english:String(p.english||""),
   description:String(p.description||""),
+  category:String(p.category||"custom"),
+  mp:/^\d+$/.test(String(p.mp||""))?String(p.mp).padStart(3,"0"):String(p.mp||""),
+  usage:String(p.usage||""),
+  tags:String(p.tags||""),
   source:"code"
 }));
 let project={name:"新しい絵コンテ",date:new Date().toISOString().slice(0,10),memo:"",cuts:[],customCameras:[]};
@@ -232,8 +301,8 @@ const googleOAuthClientId="441717303452-kf7f9sv7mm0mhas1jlbcqifj6fq422p2.apps.go
 let auth=null,db=null,currentUser=null,cloudProjectId=null,driveBaseEtag=null,driveAccessToken=null,driveTokenExpiresAt=0,cloudConflict=false,cloudSaveTimer=null,lastAuthUid=null;
 try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore()}catch(e){console.error("Firebase initialization failed",e)}
 function allPresets(){
- const builtins=presets.map(p=>({id:p[0],name:p[1],english:p[2],description:p[3],source:"builtin"}));
- const saved=(project.customCameras||[]).map(p=>({id:p.id,name:p.name,english:p.english||"",description:p.description||"",source:"project"}));
+ const builtins=presets.map(p=>({id:p[0],name:p[1],english:p[2],description:p[3],category:p[4]||"custom",mp:p[5]||"",usage:p[6]||"",tags:p[7]||"",source:"builtin"}));
+ const saved=(project.customCameras||[]).map(p=>({id:p.id,name:p.name,english:p.english||"",description:p.description||"",category:p.category||"custom",mp:p.mp||"",usage:p.usage||"",tags:p.tags||"",source:"project"}));
  return [...builtins,...codeCameras,...saved];
 }
 function normalizeProject(d){
@@ -267,7 +336,11 @@ async function loadSelectedCloud(){try{requireCloud();const id=$("cloudProjects"
 function setupAuth(){if(!auth){$("accountStatus").textContent="Firebase未接続";cloudMessage("Firebase SDKの読み込みに失敗しました。ネットワークを確認してください。");return}auth.languageCode="ja";auth.onAuthStateChanged(user=>{const uid=user?.uid||null;if(uid!==lastAuthUid){clearTimeout(cloudSaveTimer);cloudProjectId=null;driveBaseEtag=null;driveAccessToken=null;driveTokenExpiresAt=0;cloudConflict=false;lastAuthUid=uid}currentUser=user;updateAuthUi(user)})}
 function total(){return project.cuts.reduce((a,c)=>a+(Number(c.duration)||0),0)}
 function cameraName(id){let p=allPresets().find(x=>x.id===id);return p?p.name:"未設定"}
-function renderCameraList(){let chosen=project.cuts.find(c=>c.id===selectedId);$("cameraList").innerHTML=allPresets().map(p=>`<button class="camera-option ${chosen&&chosen.camera===p.id?"active":""}" data-camera="${esc(p.id)}"><span class="num">${esc(p.id)}</span><span><b>${esc(p.name)}</b><small>${esc(p.description||p.english||"カスタム演出")}</small></span></button>`).join("");}
+function cameraLabel(id){let p=allPresets().find(x=>x.id===id);return p?p.name+(p.english?" ("+p.english+")":"")+(p.mp?" · Motion Prompt #"+p.mp:""):"未設定"}
+function cameraPromptText(p){const lines=["「"+p.name+"（"+(p.english||p.name)+"）」を使ってください。"];if(p.mp)lines.push("Motion Prompt #"+p.mp+"（"+(CAMERA_CATEGORIES[p.category]||"カスタム")+"）");if(p.description)lines.push("どういう動きか: "+p.description);if(p.usage)lines.push("使いどころ: "+p.usage);if(p.mp)lines.push("動く見本: https://showheyohtaki.github.io/motion-prompt/#"+p.mp);return lines.join("\n")}
+function filteredCameras(){const words=cameraQuery.split(/\s+/).filter(Boolean);return allPresets().filter(p=>{if(cameraCat!=="all"&&(p.category||"custom")!==cameraCat)return false;if(!words.length)return true;const hay=[p.id,p.name,p.english,p.description,p.usage,p.tags,p.mp,CAMERA_CATEGORIES[p.category]||""].join(" ").toLowerCase();return words.every(w=>hay.includes(w))})}
+function cameraOptions(selected){const all=allPresets();let out="";for(const key of ["move","style","angle","transition"]){const items=all.filter(p=>p.source==="builtin"&&(p.category||"custom")===key);if(items.length)out+=`<optgroup label="${esc(CAMERA_CATEGORIES[key])}">`+items.map(p=>`<option value="${esc(p.id)}" ${selected===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}${p.mp?" (#"+esc(p.mp)+")":""}</option>`).join("")+"</optgroup>"}const customs=all.filter(p=>p.source!=="builtin");if(customs.length)out+=`<optgroup label="カスタム">`+customs.map(p=>`<option value="${esc(p.id)}" ${selected===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")+"</optgroup>";return out}
+function renderCameraList(){let chosen=project.cuts.find(c=>c.id===selectedId);const list=filteredCameras();$("cameraList").innerHTML=list.length?list.map(p=>`<button class="camera-option ${chosen&&chosen.camera===p.id?"active":""}" data-camera="${esc(p.id)}"><span class="num">${esc(p.id)}</span><span><b>${esc(p.name)}</b>${p.mp?`<span class="mp-badge">#${esc(p.mp)}</span>`:""}<small>${esc(p.description||p.english||"カスタム演出")}</small><small class="cam-cat">${esc(CAMERA_CATEGORIES[p.category]||"カスタム")}${p.english?" · "+esc(p.english):""}</small></span></button>`).join(""):`<p class="muted">該当するカメラワークがありません。検索語やカテゴリを変えてください。</p>`;$("cameraCount").textContent=list.length+"件表示中（標準48＋カスタム"+Math.max(0,allPresets().length-48)+"）";const pc=$("presetCount");if(pc)pc.textContent=allPresets().length;document.querySelectorAll("#cameraChips [data-cat]").forEach(b=>b.classList.toggle("active",b.dataset.cat===cameraCat));const sel=chosen?allPresets().find(p=>p.id===chosen.camera):null;const detail=$("cameraDetail");if(sel){detail.hidden=false;detail.innerHTML=`<h4>${esc(sel.name)}${sel.english?" <small>"+esc(sel.english)+"</small>":""}${sel.mp?`<span class="mp-badge">Motion Prompt #${esc(sel.mp)}</span>`:""}</h4><div>${esc(sel.description||"")}</div>${sel.usage?`<div><b>使いどころ：</b>${esc(sel.usage)}</div>`:""}<div class="toolbar">${sel.mp?`<a class="btn small" href="https://showheyohtaki.github.io/motion-prompt/#${esc(sel.mp)}" target="_blank" rel="noopener">▶ 動く見本を開く</a>`:""}<button class="btn small" type="button" data-copy-prompt="${esc(sel.id)}">AI用プロンプトをコピー</button></div>`}else{detail.hidden=true;detail.innerHTML=""}}
 function render(){
  $("projectName").value=project.name;$("projectDate").value=project.date||"";$("projectMemo").value=project.memo;$("heading").textContent=project.name||"無題の絵コンテ";
  $("cutCount").textContent=project.cuts.length;$("totalTime").textContent=total()+"秒";
@@ -278,8 +351,8 @@ function render(){
  <div class="cutbody">
  <div class="sketch" data-preview="${esc(c.id)}">${preview?`<img src="${esc(preview)}" alt="CUT ${i+1}の絵">`:`<span class="empty">絵を描く / 画像を追加</span>`}</div>
  <div class="cutactions"><button class="btn small" data-action="draw" data-id="${esc(c.id)}">✎ 描く</button><button class="btn small" data-action="cg" data-id="${esc(c.id)}">♟ 3Dシーン</button><button class="btn small" data-action="image" data-id="${esc(c.id)}">▧ 画像</button><button class="btn small" data-action="up" data-id="${esc(c.id)}" ${i===0?"disabled":""}>↑</button><button class="btn small" data-action="down" data-id="${esc(c.id)}" ${i===project.cuts.length-1?"disabled":""}>↓</button><button class="btn small" data-action="duplicate" data-id="${esc(c.id)}">複製</button><button class="btn small" data-action="delete" data-id="${esc(c.id)}">削除</button></div>
- <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${esc(c.id)}"><option value="">選択してください</option>${allPresets().map(p=>`<option value="${esc(p.id)}" ${c.camera===p.id?"selected":""}>${esc(p.id)} ${esc(p.name)}</option>`).join("")}</select></div>
- ${cam?`<p class="muted" style="margin:-3px 0 8px">${esc(cam.description||cam.english||"")}</p>`:""}
+ <div class="field"><label>カメラワーク</label><select data-field="camera" data-id="${esc(c.id)}"><option value="">選択してください</option>${cameraOptions(c.camera)}</select></div>
+ ${cam?`<div class="cut-cam-detail">${cam.english?`<b>${esc(cam.english)}</b> `:""}${esc(cam.description||"")}${cam.usage?`<br>使いどころ：${esc(cam.usage)}`:""}<br>${cam.mp?`<a href="https://showheyohtaki.github.io/motion-prompt/#${esc(cam.mp)}" target="_blank" rel="noopener">▶ Motion Prompt #${esc(cam.mp)} の動く見本</a> · `:""}<button class="btn small" type="button" data-copy-prompt="${esc(cam.id)}">AI用プロンプトをコピー</button></div>`:""}
  <div class="field"><label>カット番号（重複可）</label><input data-field="cutNumber" data-id="${esc(c.id)}" value="${esc(c.cutNumber??String(i+1))}" placeholder="例：12A、3-2"></div>
  <div class="field"><label>シーン番号（重複可）</label><input data-field="sceneNumber" data-id="${esc(c.id)}" value="${esc(c.sceneNumber??"")}" placeholder="例：SCENE 2"></div>
  <div class="field"><label>シーン名 / 場面・被写体</label><input data-field="scene" data-id="${esc(c.id)}" value="${esc(c.scene)}" placeholder="例：駅前・人物の表情"></div>
@@ -316,6 +389,9 @@ $('closeCg').addEventListener('click',()=>$('cgDialog').close());$('cancelCg').a
 $('saveCg').addEventListener('click',()=>{let c=getCut(cgTarget);if(!c)return;try{c.scene3d=window.get3DSceneData?.()||null;c.drawing=window.capture3DScene?.()||'';if(!c.drawing)throw new Error('3Dプレビューを取得できません');c.image='';if(!c.scene)c.scene='3Dシーン';if(!c.description)c.description='3Dシーンスタジオで作成';render();persist();$('cgDialog').close()}catch(e){cloudMessage(e.message||'3Dプレビューを保存できませんでした')}});
 $("cuts").addEventListener("click",e=>{let b=e.target.closest("button[data-action]");if(!b)return;let {action,id}=b.dataset;selectedId=id;if(action==="draw")openDraw(id);if(action==="cg")openCg(id);if(action==="image"){$("imageInput").dataset.id=id;$("imageInput").click()}if(action==="up")move(id,-1);if(action==="down")move(id,1);if(action==="duplicate"){let c=getCut(id);let n={...c,id:uid()};let i=project.cuts.findIndex(x=>x.id===id);project.cuts.splice(i+1,0,n);selectedId=n.id;render();persist()}if(action==="delete"){if(confirm("このカットを削除しますか？")){project.cuts=project.cuts.filter(c=>c.id!==id);selectedId=project.cuts[0]?.id||null;render();persist()}}});
 $("cameraList").addEventListener("click",e=>{let b=e.target.closest("[data-camera]");if(!b)return;if(!selectedId){addCut()}let c=getCut(selectedId);if(c)c.camera=b.dataset.camera;render();persist()});
+$("cameraSearch").addEventListener("input",e=>{cameraQuery=e.target.value.trim().toLowerCase();renderCameraList()});
+$("cameraChips").addEventListener("click",e=>{let b=e.target.closest("[data-cat]");if(!b)return;cameraCat=b.dataset.cat;renderCameraList()});
+document.addEventListener("click",async e=>{let b=e.target.closest("[data-copy-prompt]");if(!b)return;let p=allPresets().find(x=>x.id===b.dataset.copyPrompt);if(!p)return;const text=cameraPromptText(p);try{await navigator.clipboard.writeText(text);const old=b.textContent;b.textContent="コピーしました ✓";setTimeout(()=>{b.textContent=old},1600)}catch(err){prompt("AI用プロンプトをコピーしてください",text)}});
 $("projectName").addEventListener("input",e=>{project.name=e.target.value;$("heading").textContent=project.name||"無題の絵コンテ";persist()});
 $("projectMemo").addEventListener("input",e=>{project.memo=e.target.value;persist()});
 $("projectDate").addEventListener("change",e=>{project.date=e.target.value;persist()});
@@ -407,7 +483,7 @@ $("exportImagesBtn").addEventListener("click",()=>{
    let y=drawText("シーン： "+(c.scene||"未設定"),48,150);
    const imgSrc=c.drawing||c.image;
    const drawMeta=()=>{
-     y=drawText("カメラ： "+cameraName(c.camera),48,640);
+     y=drawText("カメラ： "+cameraLabel(c.camera),48,640);
      y=drawText("演出： "+(c.description||"なし"),48,y);
      canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=safeFileName(project.name)+"_"+safeFileName(project.date)+"_CUT"+String(i+1).padStart(2,"0")+".png";a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}, "image/png");
    };
