@@ -99,6 +99,14 @@ Drive上のデータは各利用者のGoogleアカウントに紐づき、各利
 ### 運用者向けセットアップ（Firebase / Drive連携を使う場合）
 利用開始前にFirebase AuthenticationでGoogleとメールアドレス／パスワードを有効にし、承認済みドメインに `thunder923.github.io` を追加してください。Google Cloud ConsoleではGoogle Drive APIを有効にし、OAuth同意画面を設定します。Google Auth Platformの「クライアント」にあるWebクライアントには、承認済みJavaScript生成元として `https://thunder923.github.io` を登録してください。アプリが求める権限は `https://www.googleapis.com/auth/drive.appdata` で、各利用者のCUT BOARD専用の非表示領域だけにアクセスします。Firebase Authenticationはログインとアカウント識別に使用しますが、プロジェクト本文はFirestoreやFirebase Storageには保存しません。Firestoreルールの変更も不要です。
 
+## プライバシーポリシー
+
+- プロジェクトはブラウザの `localStorage` に保存され、作者のサーバーへ送信されることはありません
+- Google Drive同期を使う場合に限り、プロジェクトは利用者自身の Google Drive のアプリ専用領域（`appDataFolder`）に保存されます。アプリが求める権限は `drive.appdata` のみで、Drive上のデータは各利用者のGoogleアカウントに属します
+- Firebase Authentication はログインとアカウント識別だけに使います。プロジェクト本文を Firestore や Firebase Storage に保存することはありません（旧版で Firestore に保存したデータがある場合のみ、読み取り専用の移行機能があります。元データは削除されません）
+- ライブラリ（Firebase / PDF.js / Three.js など）はCDNから読み込むため、ページ表示時に各配信元へ通常のWebアクセスが発生します
+- JSONの書き出し・読み込みは端末内で完結します
+
 ## GitHub Pagesで公開する（フォーク・再デプロイ用）
 
 1. GitHubで新しいリポジトリを作成（例：`cut-board`）。
