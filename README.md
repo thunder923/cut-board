@@ -52,7 +52,7 @@ PNG書き出しのカメラ表記にも英語名と Motion Prompt 番号が入�
 - `index.html` — アプリ本体
 - `custom-cameras.js` — GitHubで共有する共通カスタム演出一覧
 - `manifest.webmanifest` — PWA用の基本情報
-- `firestore.rules` — 以前のFirestore保存用ルール（現在のアプリはFirestoreを使いません）
+- `firestore.rules` — 以前のFirestore保存用ルール（新規保存はGoogle Driveで、Firestoreは旧データの読み取り移行のときにだけ参照します）
 - `.nojekyll` — GitHub Pagesで静的ファイルを公開するための設定
 - `README.md` — この説明
 
